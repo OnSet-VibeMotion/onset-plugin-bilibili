@@ -1,0 +1,167 @@
+{
+  "manifest_version": 1,
+  "requires": {
+    "onset": "0.1.0"
+  },
+  "id": "bilibili-upload",
+  "version": "0.1.0",
+  "name": "B 站上传助手",
+  "description": "选择 B 站账号，在片场客户端内自动上传成片、封面并填入文案，最后由你检查并发布。",
+  "after": "publish",
+  "prompt": "prompt.md",
+  "nodes": [
+    {
+      "id": "bilibili-upload",
+      "label": "上传到 B 站",
+      "step": "publish",
+      "page": "accounts",
+      "stale_after": [
+        "publish",
+        "review"
+      ],
+      "state": {
+        "file": "production/bilibili/state.json",
+        "json": "status",
+        "cases": [
+          {
+            "is": "ready_to_publish",
+            "status": "done",
+            "detail": "已填写，请在 B 站手动投稿"
+          },
+          {
+            "is": "running",
+            "status": "doing",
+            "detail": "正在准备 B 站内容"
+          },
+          {
+            "is": [
+              "error",
+              "interrupted"
+            ],
+            "status": "doing",
+            "detail": "请检查 B 站窗口或重新准备",
+            "waiting": "user"
+          }
+        ],
+        "missing": {
+          "status": "todo",
+          "waiting": "user"
+        }
+      }
+    }
+  ],
+  "produces": [
+    {
+      "prefix": "production/bilibili/"
+    }
+  ],
+  "ops": [
+    {
+      "name": "accounts",
+      "summary": "B 站账号",
+      "trigger": "user",
+      "project": false,
+      "list": true,
+      "command": [
+        "{node}",
+        "dist/plugin.cjs",
+        "accounts"
+      ],
+      "params": {}
+    },
+    {
+      "name": "login",
+      "summary": "登录 B 站账号",
+      "description": "在片场里打开 B 站登录页，登录好后自动记下昵称与头像，回到片场。",
+      "trigger": "user",
+      "project": false,
+      "command": [
+        "{node}",
+        "dist/plugin.cjs",
+        "login"
+      ],
+      "params": {}
+    },
+    {
+      "name": "open_account",
+      "summary": "打开这个账号的 B 站窗口",
+      "trigger": "user",
+      "project": false,
+      "form": false,
+      "command": [
+        "{node}",
+        "dist/plugin.cjs",
+        "open_account"
+      ],
+      "params": {
+        "account": {
+          "type": "string",
+          "description": "账号编号",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "remove_account",
+      "summary": "移除账号",
+      "trigger": "user",
+      "project": false,
+      "form": false,
+      "command": [
+        "{node}",
+        "dist/plugin.cjs",
+        "remove_account"
+      ],
+      "params": {
+        "account": {
+          "type": "string",
+          "description": "账号编号",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "prepare",
+      "summary": "上传成片和封面并填写 B 站文案",
+      "trigger": "user",
+      "form": false,
+      "command": [
+        "{node}",
+        "dist/plugin.cjs",
+        "prepare"
+      ],
+      "params": {
+        "account": {
+          "type": "string",
+          "description": "账号编号",
+          "required": true
+        }
+      }
+    }
+  ],
+  "pages": [
+    {
+      "id": "accounts",
+      "label": "B 站",
+      "entry": "ui/index.html",
+      "reads": [
+        "production/bilibili/"
+      ]
+    }
+  ],
+  "slots": [
+    {
+      "at": "publish",
+      "page": "accounts",
+      "height": 440
+    }
+  ],
+  "settings": [],
+  "browser": {
+    "origins": [
+      "https://member.bilibili.com",
+      "https://passport.bilibili.com",
+      "https://www.bilibili.com"
+    ]
+  }
+}

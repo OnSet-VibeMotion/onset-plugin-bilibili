@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>B 站创作中心</title>
+<div class="upload-v2-step1-container"><div id="bili-upload-btn"><input type="file" accept=".mp4,.mov" hidden></div></div>
+<div class="upload-v2-step2-container" hidden>
+  <span class="upload-status-intro">上传中</span>
+  <div class="content-title-v2-input-wrp"><input placeholder="请输入稿件标题"></div>
+  <div class="content-desc-v2-text-wrp"><div class="ql-editor" contenteditable="true" style="min-height: 24px"></div></div>
+  <div id="content-tag-v2-container"><input placeholder="按回车键Enter创建标签"><div class="content-tag-v2-pre-wrp"></div></div>
+  <div class="cover-content"><div class="cover-upload"><div class="img" style="width: 60px; height: 40px; background-image: url('https://i0.hdslb.com/old.jpg')"></div></div></div>
+  <button id="submit">立即投稿</button>
+</div>
+<div id="modal-root"></div>
+<script>
+  window.submits = 0;
+  const video = document.querySelector('#bili-upload-btn input');
+  const modal = document.querySelector('#modal-root');
+  const status = document.querySelector('.upload-status-intro');
+  const picture = document.querySelector('.cover-upload .img');
+  document.querySelector('#submit').onclick = () => window.submits++;
+  video.onchange = () => {
+    if (!video.files.length) return;
+    window.video = video.files[0].name;
+    document.querySelector('.upload-v2-step1-container').hidden = true;
+    document.querySelector('.upload-v2-step2-container').hidden = false;
+    setTimeout(() => status.textContent = window.failVideo ? '上传错误' : '上传完成', 120);
+  };
+  document.querySelector('#content-tag-v2-container input').onkeydown = event => {
+    if (event.key !== 'Enter') return;
+    const chip = document.createElement('span');
+    chip.textContent = event.target.value;
+    document.querySelector('.content-tag-v2-pre-wrp').append(chip);
+    event.target.value = '';
+  };
+  picture.onclick = () => {
+    modal.innerHTML = '<div class="cover-select"><div class="cover-select-content-upload"><input type="file" accept="image/png,image/jpeg" hidden><div class="cover-cropper"></div></div><div class="cover-select-footer"><button disabled>完成</button></div></div>';
+    const input = modal.querySelector('input');
+    const done = modal.querySelector('button');
+    let file;
+    input.onchange = () => {
+      file = input.files[0];
+      input.value = '';
+      if (!file) return;
+      modal.querySelector('.cover-cropper').innerHTML = '<img width="20" height="20" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">';
+      setTimeout(() => { done.disabled = false; }, 300);
+    };
+    done.onclick = () => {
+      window.cover = file.name;
+      picture.style.backgroundImage = 'url("https://i0.hdslb.com/new.jpg")';
+      modal.replaceChildren();
+    };
+  };
+</script>

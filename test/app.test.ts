@@ -1,0 +1,240 @@
+import { afterEach, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { runOperation, validateRequest } from '../src/app';
+import { AccountStore, newAccountID } from '../src/accounts';
+import type { BrowserConnection, Page } from '../src/cdp';
+import type { preparePage } from '../src/prepare';
+
+const roots: string[] = [];
+function temp() { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'onset-bilibili-app-')); roots.push(dir); return dir; }
+afterEach(() => { for (const dir of roots.splice(0)) fs.rmSync(dir, { recursive: true, force: true }); });
+function setup() {
+  const request = { project_root: temp(), data_dir: temp(), params: {} as Record<string, unknown>, settings: {}, browser: { endpoint: 'http://127.0.0.1:3210/', token: 'a'.repeat(64) } };
+  const account = new AccountStore(request.data_dir).saveLoggedIn({ id: newAccountID(), name: '工作号', user_id: 'w1' }).account;
+  const disconnect = vi.fn(), navigate = vi.fn(), close = vi.fn(async () => {}), forget = vi.fn(async () => ({}));
+  const state = vi.fn(async () => ({ open: true, visible: true }));
+  const evaluate = vi.fn(async (): Promise<unknown> => null);
+  const prepare = vi.fn<typeof preparePage>(async () => []);
+  const deps = {
+    open: vi.fn(async () => ({ disconnect, state, close }) as unknown as BrowserConnection),
+    page: vi.fn(async () => ({ navigate, evaluate, raw: vi.fn(), origin: 'https://member.bilibili.com' }) as unknown as Page),
+    draft: vi.fn(async () => ({ title: '标题', content: '正文', tags: [], video: '/movie.mp4', covers: { '16:10': '/cover.png' }, videoHash: 'abc' })),
+    prepare,
+    avatar: vi.fn(async () => 'data:image/png;base64,iVBORw0KGgo='),
+    sleep: vi.fn(async () => {}),
+    bridge: vi.fn(() => ({ request: vi.fn(), forget, disconnect: vi.fn() })) as unknown as typeof import('../src/browser').connectBridge,
+    loginTimeout: 60_000,
+  };
+  return { request, account, deps, disconnect, navigate, close, forget, state, evaluate };
+}
+it('账号列表给设置画卡片：头像、昵称、打开与移除；不打开浏览器、不写项目', async () => {
+  const { request, deps, account } = setup();
+  const listed = await runOperation('accounts', request, () => {}, deps);
+  expect(deps.open).not.toHaveBeenCalled();
+  expect(listed.items).toEqual([{ title: '工作号', detail: expect.stringMatching(/^登录于 /), actions: [
+    { label: '打开', op: 'open_account', params: { account: account.id } },
+    { label: '移除', op: 'remove_account', params: { account: account.id }, confirm: '移除「工作号」后要重新登录，确定吗？' },
+  ] }]);
+  expect(fs.readdirSync(request.project_root)).toEqual([]);
+});
+it('账号列表也给插件页面（onset.list）：编号、名字与头像，不含登录状态，不写项目', async () => {
+  const { request, deps, account } = setup();
+  const listed = await runOperation('accounts', request, () => {}, deps) as { accounts?: Record<string, unknown>[] };
+  expect(listed.accounts).toEqual([{ id: account.id, name: '工作号', created_at: account.created_at }]);
+  expect(fs.readdirSync(request.project_root)).toEqual([]);
+});
+it('一键登录：打开登录页，等用户登录好，读出昵称与头像记下来，关掉页面回到片场', async () => {
+  const { request, deps, evaluate, close, navigate } = setup();
+  request.project_root = '';
+  evaluate.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce({ name: 'B 站创作者', avatar: 'https://i0.hdslb.com/a.jpg', user_id: 'u9' });
+  const result = await runOperation('login', request, () => {}, deps);
+  expect(deps.open).toHaveBeenCalledWith('', expect.objectContaining({ label: '登录', hint: '请在下方登录 B 站，登录后会自动回到片场' }));
+  expect(navigate).not.toHaveBeenCalled();
+  expect(deps.avatar).toHaveBeenCalledWith('https://i0.hdslb.com/a.jpg');
+  expect(result).toMatchObject({ status: 'logged_in', message: '已登录：B 站创作者' });
+  expect(close).toHaveBeenCalledOnce();
+  const store = new AccountStore(request.data_dir);
+  expect(Object.fromEntries(store.list().map(a => [a.user_id, [a.name, a.avatar]]))).toEqual({
+    w1: ['工作号', undefined],
+    u9: ['B 站创作者', 'data:image/png;base64,iVBORw0KGgo='],
+  });
+});
+it('同一个账号重新登录：换掉旧的那条', async () => {
+  const { request, deps, evaluate } = setup();
+  evaluate.mockResolvedValue({ name: '工作号改名', avatar: '', user_id: 'w1' });
+  expect((await runOperation('login', request, () => {}, deps)).message).toBe('「工作号改名」重新登录好了');
+  expect(new AccountStore(request.data_dir).list().map(a => a.name)).toEqual(['工作号改名']);
+  expect(deps.avatar).not.toHaveBeenCalled();
+});
+it('用户收起登录页或一直不登录：不留半截账号，删掉新开的存储', async () => {
+  const { request, deps, state, close, evaluate } = setup();
+  state.mockResolvedValueOnce({ open: true, visible: true }).mockResolvedValueOnce({ open: true, visible: false });
+  await expect(runOperation('login', request, () => {}, deps)).rejects.toThrow('登录页面关掉了');
+  expect(close).toHaveBeenCalledOnce();
+  expect(new AccountStore(request.data_dir).list().map(a => a.name)).toEqual(['工作号']);
+  expect(fs.readdirSync(path.join(request.data_dir, 'accounts')).filter(n => /^[0-9a-f-]{36}$/.test(n))).toHaveLength(1);
+  // 页面还在加载、跳转中读不到也不算失败；超时才放弃。
+  evaluate.mockRejectedValue(Error('Execution context was destroyed'));
+  await expect(runOperation('login', request, () => {}, { ...deps, loginTimeout: -1 })).rejects.toThrow('十分钟');
+});
+it('移除账号：先请片场关掉它开着的页面，再删资料与登录状态', async () => {
+  const { request, deps, account, forget } = setup();
+  fs.mkdirSync(path.join(request.data_dir, 'web-sessions', account.id), { recursive: true });
+  request.params = { account: account.id };
+  expect((await runOperation('remove_account', request, () => {}, deps)).message).toBe('已移除「工作号」');
+  expect(forget).toHaveBeenCalledWith(account.id);
+  expect(fs.existsSync(path.join(request.data_dir, 'web-sessions', account.id))).toBe(false);
+  expect(new AccountStore(request.data_dir).list()).toEqual([]);
+});
+it('上传操作最后交给用户，断开自动化连接而保留浏览器', async () => {
+  const { request, account, deps, disconnect, evaluate } = setup();
+  evaluate.mockResolvedValue({ user_id: account.user_id });
+  request.params = { account: account.id };
+  deps.prepare.mockImplementationOnce(async (_page, _draft, onProgress) => { onProgress(0.5, '正在上传'); return []; });
+  const result = await runOperation('prepare', request, () => {}, deps);
+  expect(result.status).toBe('ready_to_publish'); expect(disconnect).toHaveBeenCalledOnce();
+  expect(deps.prepare).toHaveBeenCalledOnce();
+  const state = JSON.parse(fs.readFileSync(path.join(request.project_root, 'production/bilibili/state.json'), 'utf8'));
+  expect(state.status).toBe('ready_to_publish'); expect(state.account.id).toBe(account.id);
+  expect(state.video_sha256).toBe('abc');
+});
+it('封面等操作失败时保留窗口并写失败状态，不冒充已填写', async () => {
+  const { request, account, deps, disconnect, evaluate } = setup(); request.params = { account: account.id };
+  evaluate.mockResolvedValue({ user_id: account.user_id });
+  deps.prepare.mockRejectedValueOnce(Error('封面失败'));
+  await expect(runOperation('prepare', request, () => {}, deps)).rejects.toThrow('封面失败');
+  expect(disconnect).toHaveBeenCalledOnce();
+  expect(JSON.parse(fs.readFileSync(path.join(request.project_root, 'production/bilibili/state.json'), 'utf8')).status).toBe('error');
+});
+it('先校验素材，再开浏览器，错误时不会上传', async () => {
+  const { request, account, deps } = setup(); request.params = { account: account.id };
+  deps.draft.mockRejectedValueOnce(Error('成片已变动'));
+  await expect(runOperation('prepare', request, () => {}, deps)).rejects.toThrow('成片已变动');
+  expect(deps.open).not.toHaveBeenCalled();
+});
+it('没打开项目时账号操作不写任何项目；上传仍要项目', async () => {
+  const { request, deps, account, state } = setup();
+  state.mockResolvedValue({ open: true, visible: false });
+  const project = request.project_root;
+  request.project_root = '';
+  request.params = { account: account.id };
+  await runOperation('open_account', request, () => {}, deps);
+  await expect(runOperation('prepare', request, () => {}, deps)).rejects.toThrow('要在项目里进行');
+  expect(fs.readdirSync(project)).toEqual([]);
+  expect(deps.draft).not.toHaveBeenCalled();
+});
+it('打开指定账号，只打开页面，不读取项目视频', async () => {
+  const { request, account, deps, state } = setup(); request.params = { account: account.id };
+  state.mockResolvedValue({ open: true, visible: false });
+  await runOperation('open_account', request, () => {}, deps);
+  expect(deps.draft).not.toHaveBeenCalled(); expect(deps.prepare).not.toHaveBeenCalled();
+});
+it('拒绝不合法协议输入、未知操作和自动发布要求', async () => {
+  for (const input of [null, [], {}, { project_root: '../bad', data_dir: '/tmp' },
+    { project_root: '/tmp', data_dir: '/tmp', params: { auto_publish: true } },
+    { project_root: '/tmp', data_dir: '/tmp', params: { name: '手填的备注' } },
+    { project_root: '/tmp', data_dir: '/tmp', params: { account: 3 } },
+    { project_root: '/tmp', data_dir: '/tmp', browser: { endpoint: 'https://remote.example/', token: 'secret' } },
+  ]) expect(() => validateRequest(input)).toThrow();
+  const { request, deps } = setup();
+  await expect(runOperation('publish', request, () => {}, deps)).rejects.toThrow('操作');
+  expect(deps.open).not.toHaveBeenCalled();
+});
+
+it('重新打开账号保留用户修改过的页面，不跳回首页', async () => {
+  const { request, account, deps, navigate } = setup();
+  request.params = { account: account.id };
+  deps.open.mockResolvedValueOnce({ disconnect: vi.fn(), reused: true } as unknown as BrowserConnection);
+  await runOperation('open_account', request, () => {}, deps);
+  expect(navigate).not.toHaveBeenCalled();
+});
+it('旧客户端缺内嵌页面连接时明确报错，不启动外部浏览器', async () => {
+  const { request, account } = setup();
+  request.params = { account: account.id };
+  await expect(runOperation('open_account', { ...request, browser: undefined })).rejects.toThrow(/更新片场/);
+});
+
+it('登录成功后等待资料加载，再保存昵称和头像', async () => {
+  const { request, deps, evaluate } = setup();
+  evaluate.mockResolvedValueOnce({ name: '', avatar: '', user_id: 'u9' })
+    .mockResolvedValueOnce({ name: 'B 站创作者', avatar: '', user_id: 'u9' })
+    .mockResolvedValueOnce({ name: '', avatar: 'https://i0.hdslb.com/avatar.png', user_id: 'u9' });
+  expect((await runOperation('login', request, () => {}, deps)).account).toMatchObject({
+    name: 'B 站创作者', user_id: 'u9', avatar: 'data:image/png;base64,iVBORw0KGgo=',
+  });
+  expect(evaluate).toHaveBeenCalledTimes(3);
+});
+it('已登录但始终没有昵称，不保存占位账号并清理临时会话', async () => {
+  const { request, deps, evaluate, forget } = setup();
+  evaluate.mockResolvedValue({ name: '', avatar: '', user_id: 'u9' });
+  await expect(runOperation('login', request, () => {}, deps)).rejects.toThrow('昵称');
+  expect(new AccountStore(request.data_dir).list().map(a => a.name)).toEqual(['工作号']);
+  expect(forget).toHaveBeenCalledOnce();
+});
+it('打开旧账号时刷新昵称和头像，沿用现有会话编号', async () => {
+  const { request, account, deps, evaluate } = setup();
+  request.params = { account: account.id };
+  evaluate.mockResolvedValue({ name: '工作号新昵称', avatar: 'https://i0.hdslb.com/a.jpg', user_id: 'w1' });
+  const result = await runOperation('open_account', request, () => {}, deps);
+  const expected = { ...account, name: '工作号新昵称', avatar: 'data:image/png;base64,iVBORw0KGgo=' };
+  expect(result.account).toEqual(expected);
+  expect(new AccountStore(request.data_dir).get(account.id)).toEqual(expected);
+});
+it('在打开的原账号窗口里重新登录后，自动更新同一个账号', async () => {
+  const { request, account, deps, evaluate, close, forget, navigate } = setup();
+  request.params = { account: account.id };
+  evaluate.mockResolvedValueOnce(null).mockRejectedValueOnce(Error('页面正在跳转')).mockResolvedValueOnce(null)
+    .mockResolvedValue({ name: '重新登录的工作号', avatar: 'https://i0.hdslb.com/a.jpg', user_id: 'w1' });
+  const result = await runOperation('open_account', request, () => {}, deps);
+  expect(result).toMatchObject({ status: 'login_refreshed', account: { ...account, name: '重新登录的工作号' } });
+  expect(new AccountStore(request.data_dir).list()).toEqual([result.account]);
+  expect(deps.open).toHaveBeenCalledExactlyOnceWith(expect.any(String), expect.objectContaining({ account: account.id }));
+  expect(close).not.toHaveBeenCalled();
+  expect(forget).not.toHaveBeenCalled();
+  expect(navigate).not.toHaveBeenCalled();
+});
+it('收起账号窗口时结束登录检查并保留原账号和浏览器会话', async () => {
+  const { request, account, deps, state, close, forget } = setup();
+  request.params = { account: account.id };
+  state.mockResolvedValueOnce({ open: true, visible: true }).mockResolvedValue({ open: true, visible: false });
+  expect(await runOperation('open_account', request, () => {}, deps)).toMatchObject({ status: 'login_pending', account });
+  expect(new AccountStore(request.data_dir).get(account.id)).toEqual(account);
+  expect(close).not.toHaveBeenCalled();
+  expect(forget).not.toHaveBeenCalled();
+});
+it('打开旧账号看到其他用户时，保留原来的账号资料', async () => {
+  const { request, account, deps, evaluate } = setup();
+  request.params = { account: account.id };
+  evaluate.mockResolvedValue({ name: '其他用户', avatar: 'https://i0.hdslb.com/a.jpg', user_id: 'other' });
+  await expect(runOperation('open_account', request, () => {}, deps)).rejects.toThrow('当前登录的 B 站账号与「工作号」不同');
+  expect(new AccountStore(request.data_dir).get(account.id)).toEqual(account);
+  expect(deps.avatar).not.toHaveBeenCalled();
+});
+it('旧账号缺少 UID，头像暂未载入时仍记录已确认的昵称与 UID', async () => {
+  const { request, deps, evaluate } = setup();
+  const store = new AccountStore(request.data_dir);
+  const account = store.saveLoggedIn({ id: newAccountID(), name: '旧账号' }).account;
+  request.params = { account: account.id };
+  evaluate.mockResolvedValueOnce({ name: '已确认的昵称', avatar: '', user_id: 'u9' });
+  await runOperation('open_account', request, () => {}, deps);
+  expect(store.get(account.id)).toEqual({ ...account, name: '已确认的昵称', user_id: 'u9' });
+  expect(deps.avatar).not.toHaveBeenCalled();
+});
+it('打开账号时只有 UID，应提示资料还未刷新', async () => {
+  const { request, account, deps, evaluate } = setup();
+  request.params = { account: account.id };
+  evaluate.mockResolvedValue({ name: '', avatar: '', user_id: account.user_id });
+  expect(await runOperation('open_account', request, () => {}, deps)).toMatchObject({
+    status: 'profile_pending', account,
+  });
+});
+
+it('上传前发现浏览器切换了账号时停止', async () => {
+  const { request, account, deps, evaluate } = setup();
+  request.params = { account: account.id };
+  evaluate.mockResolvedValue({ user_id: 'other', name: '其他用户', avatar: '' });
+  await expect(runOperation('prepare', request, () => {}, deps)).rejects.toThrow(/当前登录的 B 站账号/);
+  expect(deps.prepare).not.toHaveBeenCalled();
+});
