@@ -135,9 +135,19 @@ async function fillPage(page: Page, draft: Draft, progress: Progress, options: P
   await page.fillTitle(draft.title);
   await page.checkpoint();
   await page.fillContent(draft.content);
-  for (const tag of draft.tags) {
+  // B 站会自己预填几个标签（「生活记录」之类），先删掉清单里没有的，再一个个输入、按回车（标签框只认真回车）。
+  for (let round = 0; round < 20; round++) {
     await page.checkpoint();
-    await page.evaluate(scripts.addTag, tag);
+    if (!await page.evaluate(scripts.removeExtraTag, draft.tags)) break;
+    await delay(200);
+  }
+  for (const tag of draft.tags) {
+    if ((await page.evaluate(scripts.currentTags)).includes(tag)) continue;
+    await page.checkpoint();
+    if (!await page.evaluate(scripts.focusTagInput)) break;
+    await page.insertText(tag);
+    if (!await page.press('Enter')) break;
+    await delay(300);
   }
   await page.checkpoint();
   const form = await page.evaluate(scripts.readForm);
@@ -156,6 +166,8 @@ async function fillPage(page: Page, draft: Draft, progress: Progress, options: P
   } else {
     warnings.push('发布信息里没有登记 16:10 封面，请在 B 站设置封面。');
   }
+  // 创作声明是必填项，要用户自己判断内容性质，插件不替用户选，只提醒。
+  if (!await page.evaluate(scripts.statementChosen)) warnings.push('请在 B 站选择「创作声明」（必填）。');
   progress(1, '视频和文案已填好，请在 B 站检查投稿选项');
   return warnings;
 }
@@ -202,28 +214,23 @@ export async function canResume(page: Page): Promise<boolean> {
   } catch { return false; }
 }
 
+/**
+ * 设封面（2026-11-19 在真实投稿页上走通）：点封面位置打开「封面制作」→ 勾「双比例同步改动」→ 把图放进上传框 →
+ * 等两个比例的预览换上 →「完成」→ 编辑页上的封面换成新图。
+ */
 async function setCover(page: Page, file: string, timeout: number): Promise<void> {
-  const previous = await page.evaluate(scripts.appliedCover);
-  let selector = scripts.initialCoverInput;
-  if (!await page.evaluate(scripts.hasUpload, selector)) {
-    await page.checkpoint();
-    if (!await page.click('.cover-content .cover-upload .img')) throw Error('找不到封面入口');
-    selector = scripts.coverInput;
-    await page.waitFor(scripts.hasUpload, timeout, '找不到封面上传控件', selector);
-  }
+  if (!await page.evaluate(scripts.openCoverEditor)) throw Error('找不到封面入口');
+  await page.waitFor(scripts.hasUpload, timeout, '封面制作没有打开', scripts.coverInput);
+  if (!await page.evaluate(scripts.syncCoverRatios)) throw Error('没能勾上「双比例同步改动」，16:9 封面请手动确认');
   await page.checkpoint();
-  await page.upload(selector, file);
-  await page.waitFor(scripts.coverCropReady, timeout, '封面裁切预览尚未载入');
-  await page.waitFor(scripts.clickControl, timeout, '无法应用封面裁切', {
-    selector: '.cover-select .cover-select-footer :is(button, [role="button"])',
-    exactText: '完成',
-  });
+  await page.upload(scripts.coverInput, file);
+  // 图要先传到 B 站再放进两个比例的裁切框：等一会儿再点完成。
+  await delay(Math.min(timeout, 2500));
+  await page.waitFor(scripts.finishCover, timeout, '没找到「封面制作」的「完成」');
   let deadline = Date.now() + timeout;
   while ((deadline += await page.checkpoint(), Date.now() < deadline)) {
-    if (!await page.evaluate(scripts.coverDialogOpen)) {
-      const current = await page.evaluate(scripts.appliedCover);
-      if (current && current !== previous) return;
-    }
+    // 对话框关了、编辑页上有封面就算设好了。传的是同一张图时 B 站给的还是同一个地址，不能要求它变。
+    if (!await page.evaluate(scripts.coverDialogOpen) && await page.evaluate(scripts.appliedCover)) return;
     await delay(Math.min(timeout, 250));
   }
   throw Error('B 站页面未确认应用新封面');

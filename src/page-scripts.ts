@@ -4,8 +4,8 @@
  * （页面另有两个 name="buploader" 的隐藏上传框，不用）；其余两个是旧版页面的写法。
  */
 export const videoInput = '.bcc-upload-wrapper input[type="file"], #bili-upload-btn input[type="file"], .upload-v2-step1-container input[type="file"]';
-export const coverInput = '.cover-select .cover-select-content-upload input[type="file"]';
-export const initialCoverInput = '.cover-content .cover-upload input[type="file"]';
+/** 「封面制作」对话框里的上传框（2026-11-19 核对：.cover-editor .bcc-upload.cover-upload input，只收 png/jpeg）。 */
+export const coverInput = '.cover-editor .cover-upload input[type="file"]';
 
 export function query(selector: string): HTMLInputElement | null {
   const inputs = [...document.querySelectorAll<HTMLInputElement>(selector)]
@@ -25,9 +25,10 @@ export function hasUpload(selector: string): boolean {
  */
 export interface VideoStatus { state: 'none' | 'uploading' | 'ready' | 'failed'; text: string; percent: number | null }
 export function videoStatus(): VideoStatus {
+  // 2026-11-19 在真实投稿页上核对过：文件那一行的状态在 .file-item-content-status 里（传完是 span.success「上传完成」，
+  // 传的时候是「已经上传：x/yMB … 50%」）；上方任务列表的 .task-status 传完带 task-status-success。
   const visible = (node: Element) => node.getClientRects().length > 0;
-  const rows = [...document.querySelectorAll<HTMLElement>('.upload-status-intro')].filter(visible);
-  const nodes = [...document.querySelectorAll<HTMLElement>('.upload-status-intro, [class*="file-item-content-status"], [class*="upload-progress"], [class*="progress-text"], [role="progressbar"]')]
+  const nodes = [...document.querySelectorAll<HTMLElement>('.file-item-content-status, .task-list-content .task-status, [role="progressbar"]')]
     .filter(visible);
   const text = nodes.map(node => node.innerText.trim()).filter(Boolean).join('\n').slice(0, 500);
   const bars = nodes.flatMap(node => [node, ...node.querySelectorAll<HTMLElement>('[role="progressbar"]')]);
@@ -36,24 +37,27 @@ export function videoStatus(): VideoStatus {
   const value = Number(bar?.getAttribute('aria-valuenow')), max = Number(bar?.getAttribute('aria-valuemax') || 100);
   const percent = match ? Math.min(100, Number(match[1]))
     : bar && Number.isFinite(value) && max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : null;
-  if (/上传错误|上传失败|处理失败|转码失败/.test(text)) return { state: 'failed', text, percent };
-  if (rows.length === 1 && /^(上传完成|上传成功)$/.test(rows[0].innerText.trim())) return { state: 'ready', text, percent };
+  if (/上传错误|上传失败|上传异常|处理失败|转码失败/.test(text)
+    || nodes.some(node => /task-status-(error|fail)/.test(node.className))) return { state: 'failed', text, percent };
+  const done = [...document.querySelectorAll<HTMLElement>('.file-item-content-status-text .success, .task-list-content .task-status-success')]
+    .some(node => visible(node));
+  if (done && !/上传中|已经上传|正在上传/.test(text)) return { state: 'ready', text, percent };
   return { state: nodes.length ? 'uploading' : 'none', text, percent };
 }
 
-/** 页面停在稿件编辑区（选好视频后才有标题框）。标题框的写法同上，未在 2026-11-19 的真实页面上核对。 */
+/** 投稿编辑区打开了（选好视频后才有标题框，2026-11-19 核对：.video-title input「请输入稿件标题」）。 */
 export function editorOpen(): boolean {
-  return [...document.querySelectorAll<HTMLInputElement>('.content-title-v2-input-wrp input')]
+  return [...document.querySelectorAll<HTMLInputElement>('.video-title input.input-val, .video-title input')]
     .some(input => input.getClientRects().length > 0 && !input.disabled);
 }
 
 /**
  * B 站弹出了要用户自己做的验证：极验（geetest）滑块或点选验证码、验证码 iframe，或短信 / 身份确认弹窗（按文字认）。
- * 只认看得见的；封面裁切弹窗（.cover-select）不算。2026-11-19 没碰到验证，这些写法按 B 站常用的极验组件推测。
+ * 只认看得见的；「封面制作」弹窗（.cover-editor）不算。2026-11-19 没碰到验证，这些写法按 B 站常用的极验组件推测。
  */
 export function verificationOpen(): boolean {
   const visible = (node: Element) => node.getClientRects().length > 0 && (node as HTMLElement).offsetWidth > 20 && (node as HTMLElement).offsetHeight > 20;
-  const cover = (node: Element) => !!node.closest('.cover-select') || !!node.querySelector('.cover-select');
+  const cover = (node: Element) => !!node.closest('.cover-editor') || !!node.querySelector('.cover-editor');
   const widgets = '.geetest_panel, .geetest_box, .geetest_holder, .geetest_popup_wrap, [class*="geetest"], iframe[src*="captcha"], iframe[src*="geetest"], iframe[src*="verify"]';
   if ([...document.querySelectorAll(widgets)].some(node => visible(node) && !cover(node))) return true;
   return [...document.querySelectorAll<HTMLElement>('[role="dialog"], [class*="bcc-dialog"], [class*="dialog"], [class*="modal"]')]
@@ -75,16 +79,21 @@ export function clickControl({ selector, exactText }: { selector: string; exactT
   return true;
 }
 
+/** 标题（Vue 的 v-model：用原生 setter 赋值再发 input 事件，它才收得到）。 */
 export function fillTitle(title: string): void {
-  const fields = [...document.querySelectorAll<HTMLInputElement>('.content-title-v2-input-wrp input')]
+  const fields = [...document.querySelectorAll<HTMLInputElement>('.video-title input.input-val, .video-title input')]
     .filter(field => field.getClientRects().length && !field.disabled);
   if (fields.length !== 1) throw Error('找不到唯一的 B 站稿件标题输入框');
-  fields[0].value = title;
-  fields[0].dispatchEvent(new Event('input', { bubbles: true }));
+  const field = fields[0];
+  field.focus();
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, title);
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+  field.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** 选中简介（Quill 编辑器 .desc-container .ql-editor）里的全部内容，接着插入文字就替换掉。 */
 export function selectContent(): void {
-  const fields = [...document.querySelectorAll<HTMLElement>('.content-desc-v2-text-wrp [contenteditable="true"]')]
+  const fields = [...document.querySelectorAll<HTMLElement>('.desc-container .ql-editor[contenteditable="true"]')]
     .filter(field => field.getClientRects().length);
   if (fields.length !== 1) throw Error('找不到唯一的 B 站简介输入框');
   const field = fields[0];
@@ -96,44 +105,91 @@ export function selectContent(): void {
   selection?.addRange(range);
 }
 
-export function addTag(tag: string): void {
-  const chips = document.querySelectorAll('.content-tag-v2-pre-wrp .label-item-v2-content, .content-tag-v2-pre-wrp > span');
-  if ([...chips].some(chip => chip.textContent?.trim() === tag)) return;
-  const fields = [...document.querySelectorAll<HTMLInputElement>('#content-tag-v2-container input')]
+/** 标签框里现有的标签。 */
+export function currentTags(): string[] {
+  return [...document.querySelectorAll<HTMLElement>('#tag-container .label-item-v2-content')]
+    .filter(chip => chip.getClientRects().length).map(chip => chip.textContent?.trim() ?? '').filter(Boolean);
+}
+
+/** 删掉一个不在清单里的标签（B 站会自己预填「生活记录」之类）：点它的关闭图标。返回删的是哪个。 */
+export function removeExtraTag(keep: string[]): string {
+  for (const chip of document.querySelectorAll<HTMLElement>('#tag-container .label-item-v2-container')) {
+    const name = chip.querySelector('.label-item-v2-content')?.textContent?.trim() ?? '';
+    if (!name || keep.includes(name) || !chip.getClientRects().length) continue;
+    const close = chip.querySelector('.close');
+    if (!close) continue;
+    close.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    return name;
+  }
+  return '';
+}
+
+/** 聚焦标签输入框并清空，接下来由插件逐字输入、按回车。 */
+export function focusTagInput(): boolean {
+  const fields = [...document.querySelectorAll<HTMLInputElement>('#tag-container input.input-val, #tag-container input')]
     .filter(field => !field.disabled && field.getClientRects().length);
-  if (fields.length !== 1) return;
+  if (fields.length !== 1) return false;
   const field = fields[0];
-  field.value = tag;
+  field.focus();
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, '');
   field.dispatchEvent(new Event('input', { bubbles: true }));
-  field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true, cancelable: true }));
+  return document.activeElement === field;
 }
 
 export function readForm(): { title: string; content: string; tags: string[] } {
-  const title = document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value ?? '';
-  const content = document.querySelector<HTMLElement>('.content-desc-v2-text-wrp [contenteditable="true"]')?.innerText ?? '';
-  const tags = [...document.querySelectorAll('.content-tag-v2-pre-wrp .label-item-v2-content, .content-tag-v2-pre-wrp > span')]
-    .map(chip => chip.textContent?.trim() ?? '');
+  const title = [...document.querySelectorAll<HTMLInputElement>('.video-title input.input-val, .video-title input')].find(field => field.getClientRects().length)?.value ?? '';
+  const content = [...document.querySelectorAll<HTMLElement>('.desc-container .ql-editor')].find(field => field.getClientRects().length)?.innerText ?? '';
+  const tags = [...document.querySelectorAll<HTMLElement>('#tag-container .label-item-v2-content')]
+    .filter(chip => chip.getClientRects().length).map(chip => chip.textContent?.trim() ?? '');
   return { title, content, tags };
 }
 
+/** 编辑页上现在的封面（.cover-module-main .cover-img 的背景图）的指纹；没设封面为空。 */
 export function appliedCover(): string {
-  const preview = document.querySelector<HTMLElement>('.cover-content .cover-upload .img');
+  const preview = [...document.querySelectorAll<HTMLElement>('.cover-module-main .cover-img')].find(node => node.getClientRects().length);
   const source = preview?.style.backgroundImage ?? '';
   let checksum = 0;
   for (let i = 0; i < source.length; i++) checksum = (Math.imul(checksum, 31) + source.charCodeAt(i)) | 0;
   return source ? `${source.length}:${checksum}` : '';
 }
 
-export function coverDialogOpen(): boolean {
-  return [...document.querySelectorAll('.cover-select')].some(dialog => dialog.getClientRects().length);
+/** 点编辑页的封面位置打开「封面制作」：没封面时是「添加封面」，有封面时点封面图。 */
+export function openCoverEditor(): boolean {
+  const slot = [...document.querySelectorAll<HTMLElement>('.cover-module-main .cover-empty, .cover-module-main .cover-img')]
+    .find(node => node.getClientRects().length);
+  if (!slot) return false;
+  slot.click();
+  return true;
 }
 
-export function coverCropReady(): boolean {
-  return [...document.querySelectorAll<HTMLImageElement>('.cover-select .cover-cropper img')]
-    .some(img => img.complete && img.naturalWidth > 0 && img.getClientRects().length);
+export function coverDialogOpen(): boolean {
+  return [...document.querySelectorAll('.cover-editor')].some(dialog => dialog.getClientRects().length);
+}
+
+/**
+ * 勾上「双比例同步改动」：B 站要首页推荐（4:3）和个人空间（16:9）两张封面，不勾的话上传的图只用在 4:3 上，
+ * 16:9 还是视频截帧（2026-11-19 真实页面核对）。已经勾着就不动。返回勾没勾上。
+ */
+export function syncCoverRatios(): boolean {
+  const box = [...document.querySelectorAll<HTMLElement>('.cover-editor .sync-checkbox-wrapper .bcc-checkbox')]
+    .find(node => node.getClientRects().length);
+  if (!box) return false;
+  if (!box.classList.contains('bcc-checkbox-checked')) box.click();
+  return box.classList.contains('bcc-checkbox-checked');
+}
+
+/** 点「封面制作」里的「完成」（叶子节点上的文字）。 */
+export function finishCover(): boolean {
+  const dialog = [...document.querySelectorAll<HTMLElement>('.cover-editor')].find(node => node.getClientRects().length);
+  const buttons = [...(dialog?.querySelectorAll<HTMLElement>('*') ?? [])]
+    .filter(node => node.childElementCount === 0 && node.getClientRects().length && node.textContent?.trim() === '完成');
+  if (buttons.length !== 1) return false;
+  buttons[0].click();
+  return true;
 }
 
 export interface LoginInfo { name: string; avatar: string; user_id: string }
+
 export async function loginInfo(): Promise<LoginInfo | null> {
   try {
     const response = await fetch('https://api.bilibili.com/x/web-interface/nav', {
@@ -234,4 +290,10 @@ export async function recentWorks(pages: number): Promise<PublishedWork[] | null
 export function editorVideoDuration(): number | null {
   const durations = [...document.querySelectorAll('video')].map(video => video.duration).filter(value => Number.isFinite(value) && value > 0);
   return durations.length ? Math.max(...durations) : null;
+}
+
+/** 必填的「创作声明」选了没有（.statement-content 里的下拉框，2026-11-19 核对）。找不到这一栏就当不用选。 */
+export function statementChosen(): boolean {
+  const input = [...document.querySelectorAll<HTMLInputElement>('.statement-content input')].find(node => node.getClientRects().length);
+  return !input || input.value.trim() !== '';
 }

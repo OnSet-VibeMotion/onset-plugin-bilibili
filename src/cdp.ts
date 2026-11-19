@@ -118,6 +118,19 @@ export class Page {
   async fillTitle(title: string): Promise<void> {
     await this.evaluate(scripts.fillTitle, title);
   }
+  /** 按一个键（真的按下、松开）：B 站的标签框要真回车才收下。客户端不支持键盘事件时返回 false。 */
+  async press(key: 'Enter' | 'Backspace'): Promise<boolean> {
+    const code = key === 'Enter' ? 13 : 8;
+    try {
+      await this.raw('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code: key, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+      if (key === 'Enter') await this.raw('Input.dispatchKeyEvent', { type: 'char', key, text: '\r', unmodifiedText: '\r' });
+      await this.raw('Input.dispatchKeyEvent', { type: 'keyUp', key, code: key, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+      return true;
+    } catch (err) { if (/不支持这个网页控制命令|键盘事件无效/.test(String(err))) return false; throw err; }
+  }
+  async insertText(text: string): Promise<void> {
+    await this.raw('Input.insertText', { text });
+  }
   async fillContent(content: string): Promise<void> {
     await this.evaluate(scripts.selectContent);
     await this.raw('Input.insertText', { text: content });

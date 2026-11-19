@@ -7568,8 +7568,7 @@ async function withAccountLock(profile, run) {
 
 // src/page-scripts.ts
 var videoInput = '.bcc-upload-wrapper input[type="file"], #bili-upload-btn input[type="file"], .upload-v2-step1-container input[type="file"]';
-var coverInput = '.cover-select .cover-select-content-upload input[type="file"]';
-var initialCoverInput = '.cover-content .cover-upload input[type="file"]';
+var coverInput = '.cover-editor .cover-upload input[type="file"]';
 function query(selector) {
   const inputs = [...document.querySelectorAll(selector)].filter((input) => !input.disabled && input.parentElement?.getClientRects().length);
   return inputs.length === 1 ? inputs[0] : null;
@@ -7579,24 +7578,24 @@ function hasUpload(selector) {
 }
 function videoStatus() {
   const visible = (node) => node.getClientRects().length > 0;
-  const rows = [...document.querySelectorAll(".upload-status-intro")].filter(visible);
-  const nodes = [...document.querySelectorAll('.upload-status-intro, [class*="file-item-content-status"], [class*="upload-progress"], [class*="progress-text"], [role="progressbar"]')].filter(visible);
+  const nodes = [...document.querySelectorAll('.file-item-content-status, .task-list-content .task-status, [role="progressbar"]')].filter(visible);
   const text2 = nodes.map((node) => node.innerText.trim()).filter(Boolean).join("\n").slice(0, 500);
   const bars = nodes.flatMap((node) => [node, ...node.querySelectorAll('[role="progressbar"]')]);
   const match = text2.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
   const bar = bars.find((node) => node.hasAttribute("aria-valuenow"));
   const value = Number(bar?.getAttribute("aria-valuenow")), max = Number(bar?.getAttribute("aria-valuemax") || 100);
   const percent = match ? Math.min(100, Number(match[1])) : bar && Number.isFinite(value) && max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : null;
-  if (/上传错误|上传失败|处理失败|转码失败/.test(text2)) return { state: "failed", text: text2, percent };
-  if (rows.length === 1 && /^(上传完成|上传成功)$/.test(rows[0].innerText.trim())) return { state: "ready", text: text2, percent };
+  if (/上传错误|上传失败|上传异常|处理失败|转码失败/.test(text2) || nodes.some((node) => /task-status-(error|fail)/.test(node.className))) return { state: "failed", text: text2, percent };
+  const done = [...document.querySelectorAll(".file-item-content-status-text .success, .task-list-content .task-status-success")].some((node) => visible(node));
+  if (done && !/上传中|已经上传|正在上传/.test(text2)) return { state: "ready", text: text2, percent };
   return { state: nodes.length ? "uploading" : "none", text: text2, percent };
 }
 function editorOpen() {
-  return [...document.querySelectorAll(".content-title-v2-input-wrp input")].some((input) => input.getClientRects().length > 0 && !input.disabled);
+  return [...document.querySelectorAll(".video-title input.input-val, .video-title input")].some((input) => input.getClientRects().length > 0 && !input.disabled);
 }
 function verificationOpen() {
   const visible = (node) => node.getClientRects().length > 0 && node.offsetWidth > 20 && node.offsetHeight > 20;
-  const cover = (node) => !!node.closest(".cover-select") || !!node.querySelector(".cover-select");
+  const cover = (node) => !!node.closest(".cover-editor") || !!node.querySelector(".cover-editor");
   const widgets = '.geetest_panel, .geetest_box, .geetest_holder, .geetest_popup_wrap, [class*="geetest"], iframe[src*="captcha"], iframe[src*="geetest"], iframe[src*="verify"]';
   if ([...document.querySelectorAll(widgets)].some((node) => visible(node) && !cover(node))) return true;
   return [...document.querySelectorAll('[role="dialog"], [class*="bcc-dialog"], [class*="dialog"], [class*="modal"]')].some((dialog) => visible(dialog) && !cover(dialog) && /安全验证|身份验证|身份校验|短信验证|请完成.{0,6}验证|验证码|滑块|拖动.{0,4}完成/.test(dialog.innerText.slice(0, 300)));
@@ -7614,13 +7613,16 @@ function clickControl({ selector, exactText }) {
   return true;
 }
 function fillTitle(title) {
-  const fields = [...document.querySelectorAll(".content-title-v2-input-wrp input")].filter((field) => field.getClientRects().length && !field.disabled);
+  const fields = [...document.querySelectorAll(".video-title input.input-val, .video-title input")].filter((field2) => field2.getClientRects().length && !field2.disabled);
   if (fields.length !== 1) throw Error("\u627E\u4E0D\u5230\u552F\u4E00\u7684 B \u7AD9\u7A3F\u4EF6\u6807\u9898\u8F93\u5165\u6846");
-  fields[0].value = title;
-  fields[0].dispatchEvent(new Event("input", { bubbles: true }));
+  const field = fields[0];
+  field.focus();
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(field, title);
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+  field.dispatchEvent(new Event("change", { bubbles: true }));
 }
 function selectContent() {
-  const fields = [...document.querySelectorAll('.content-desc-v2-text-wrp [contenteditable="true"]')].filter((field2) => field2.getClientRects().length);
+  const fields = [...document.querySelectorAll('.desc-container .ql-editor[contenteditable="true"]')].filter((field2) => field2.getClientRects().length);
   if (fields.length !== 1) throw Error("\u627E\u4E0D\u5230\u552F\u4E00\u7684 B \u7AD9\u7B80\u4ECB\u8F93\u5165\u6846");
   const field = fields[0];
   field.focus();
@@ -7630,34 +7632,63 @@ function selectContent() {
   selection?.removeAllRanges();
   selection?.addRange(range);
 }
-function addTag(tag) {
-  const chips = document.querySelectorAll(".content-tag-v2-pre-wrp .label-item-v2-content, .content-tag-v2-pre-wrp > span");
-  if ([...chips].some((chip) => chip.textContent?.trim() === tag)) return;
-  const fields = [...document.querySelectorAll("#content-tag-v2-container input")].filter((field2) => !field2.disabled && field2.getClientRects().length);
-  if (fields.length !== 1) return;
+function currentTags() {
+  return [...document.querySelectorAll("#tag-container .label-item-v2-content")].filter((chip) => chip.getClientRects().length).map((chip) => chip.textContent?.trim() ?? "").filter(Boolean);
+}
+function removeExtraTag(keep) {
+  for (const chip of document.querySelectorAll("#tag-container .label-item-v2-container")) {
+    const name = chip.querySelector(".label-item-v2-content")?.textContent?.trim() ?? "";
+    if (!name || keep.includes(name) || !chip.getClientRects().length) continue;
+    const close = chip.querySelector(".close");
+    if (!close) continue;
+    close.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    return name;
+  }
+  return "";
+}
+function focusTagInput() {
+  const fields = [...document.querySelectorAll("#tag-container input.input-val, #tag-container input")].filter((field2) => !field2.disabled && field2.getClientRects().length);
+  if (fields.length !== 1) return false;
   const field = fields[0];
-  field.value = tag;
+  field.focus();
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(field, "");
   field.dispatchEvent(new Event("input", { bubbles: true }));
-  field.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, bubbles: true, cancelable: true }));
+  return document.activeElement === field;
 }
 function readForm() {
-  const title = document.querySelector(".content-title-v2-input-wrp input")?.value ?? "";
-  const content = document.querySelector('.content-desc-v2-text-wrp [contenteditable="true"]')?.innerText ?? "";
-  const tags = [...document.querySelectorAll(".content-tag-v2-pre-wrp .label-item-v2-content, .content-tag-v2-pre-wrp > span")].map((chip) => chip.textContent?.trim() ?? "");
+  const title = [...document.querySelectorAll(".video-title input.input-val, .video-title input")].find((field) => field.getClientRects().length)?.value ?? "";
+  const content = [...document.querySelectorAll(".desc-container .ql-editor")].find((field) => field.getClientRects().length)?.innerText ?? "";
+  const tags = [...document.querySelectorAll("#tag-container .label-item-v2-content")].filter((chip) => chip.getClientRects().length).map((chip) => chip.textContent?.trim() ?? "");
   return { title, content, tags };
 }
 function appliedCover() {
-  const preview = document.querySelector(".cover-content .cover-upload .img");
+  const preview = [...document.querySelectorAll(".cover-module-main .cover-img")].find((node) => node.getClientRects().length);
   const source = preview?.style.backgroundImage ?? "";
   let checksum = 0;
   for (let i = 0; i < source.length; i++) checksum = Math.imul(checksum, 31) + source.charCodeAt(i) | 0;
   return source ? `${source.length}:${checksum}` : "";
 }
-function coverDialogOpen() {
-  return [...document.querySelectorAll(".cover-select")].some((dialog) => dialog.getClientRects().length);
+function openCoverEditor() {
+  const slot = [...document.querySelectorAll(".cover-module-main .cover-empty, .cover-module-main .cover-img")].find((node) => node.getClientRects().length);
+  if (!slot) return false;
+  slot.click();
+  return true;
 }
-function coverCropReady() {
-  return [...document.querySelectorAll(".cover-select .cover-cropper img")].some((img) => img.complete && img.naturalWidth > 0 && img.getClientRects().length);
+function coverDialogOpen() {
+  return [...document.querySelectorAll(".cover-editor")].some((dialog) => dialog.getClientRects().length);
+}
+function syncCoverRatios() {
+  const box = [...document.querySelectorAll(".cover-editor .sync-checkbox-wrapper .bcc-checkbox")].find((node) => node.getClientRects().length);
+  if (!box) return false;
+  if (!box.classList.contains("bcc-checkbox-checked")) box.click();
+  return box.classList.contains("bcc-checkbox-checked");
+}
+function finishCover() {
+  const dialog = [...document.querySelectorAll(".cover-editor")].find((node) => node.getClientRects().length);
+  const buttons = [...dialog?.querySelectorAll("*") ?? []].filter((node) => node.childElementCount === 0 && node.getClientRects().length && node.textContent?.trim() === "\u5B8C\u6210");
+  if (buttons.length !== 1) return false;
+  buttons[0].click();
+  return true;
 }
 async function loginInfo() {
   try {
@@ -7749,6 +7780,10 @@ function editorVideoDuration() {
   const durations = [...document.querySelectorAll("video")].map((video) => video.duration).filter((value) => Number.isFinite(value) && value > 0);
   return durations.length ? Math.max(...durations) : null;
 }
+function statementChosen() {
+  const input = [...document.querySelectorAll(".statement-content input")].find((node) => node.getClientRects().length);
+  return !input || input.value.trim() !== "";
+}
 
 // src/cdp.ts
 var CreatorOrigin = "https://member.bilibili.com";
@@ -7828,6 +7863,22 @@ var Page = class _Page {
   }
   async fillTitle(title) {
     await this.evaluate(fillTitle, title);
+  }
+  /** 按一个键（真的按下、松开）：B 站的标签框要真回车才收下。客户端不支持键盘事件时返回 false。 */
+  async press(key) {
+    const code = key === "Enter" ? 13 : 8;
+    try {
+      await this.raw("Input.dispatchKeyEvent", { type: "rawKeyDown", key, code: key, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+      if (key === "Enter") await this.raw("Input.dispatchKeyEvent", { type: "char", key, text: "\r", unmodifiedText: "\r" });
+      await this.raw("Input.dispatchKeyEvent", { type: "keyUp", key, code: key, windowsVirtualKeyCode: code, nativeVirtualKeyCode: code });
+      return true;
+    } catch (err) {
+      if (/不支持这个网页控制命令|键盘事件无效/.test(String(err))) return false;
+      throw err;
+    }
+  }
+  async insertText(text2) {
+    await this.raw("Input.insertText", { text: text2 });
   }
   async fillContent(content) {
     await this.evaluate(selectContent);
@@ -8143,9 +8194,18 @@ async function fillPage(page, draft, progress, options, timeout, guard) {
   await page.fillTitle(draft.title);
   await page.checkpoint();
   await page.fillContent(draft.content);
-  for (const tag of draft.tags) {
+  for (let round = 0; round < 20; round++) {
     await page.checkpoint();
-    await page.evaluate(addTag, tag);
+    if (!await page.evaluate(removeExtraTag, draft.tags)) break;
+    await delay(200);
+  }
+  for (const tag of draft.tags) {
+    if ((await page.evaluate(currentTags)).includes(tag)) continue;
+    await page.checkpoint();
+    if (!await page.evaluate(focusTagInput)) break;
+    await page.insertText(tag);
+    if (!await page.press("Enter")) break;
+    await delay(300);
   }
   await page.checkpoint();
   const form = await page.evaluate(readForm);
@@ -8166,6 +8226,7 @@ async function fillPage(page, draft, progress, options, timeout, guard) {
   } else {
     warnings.push("\u53D1\u5E03\u4FE1\u606F\u91CC\u6CA1\u6709\u767B\u8BB0 16:10 \u5C01\u9762\uFF0C\u8BF7\u5728 B \u7AD9\u8BBE\u7F6E\u5C01\u9762\u3002");
   }
+  if (!await page.evaluate(statementChosen)) warnings.push("\u8BF7\u5728 B \u7AD9\u9009\u62E9\u300C\u521B\u4F5C\u58F0\u660E\u300D\uFF08\u5FC5\u586B\uFF09\u3002");
   progress(1, "\u89C6\u9891\u548C\u6587\u6848\u5DF2\u586B\u597D\uFF0C\u8BF7\u5728 B \u7AD9\u68C0\u67E5\u6295\u7A3F\u9009\u9879");
   return warnings;
 }
@@ -8208,27 +8269,16 @@ async function canResume(page) {
   }
 }
 async function setCover(page, file, timeout) {
-  const previous = await page.evaluate(appliedCover);
-  let selector = initialCoverInput;
-  if (!await page.evaluate(hasUpload, selector)) {
-    await page.checkpoint();
-    if (!await page.click(".cover-content .cover-upload .img")) throw Error("\u627E\u4E0D\u5230\u5C01\u9762\u5165\u53E3");
-    selector = coverInput;
-    await page.waitFor(hasUpload, timeout, "\u627E\u4E0D\u5230\u5C01\u9762\u4E0A\u4F20\u63A7\u4EF6", selector);
-  }
+  if (!await page.evaluate(openCoverEditor)) throw Error("\u627E\u4E0D\u5230\u5C01\u9762\u5165\u53E3");
+  await page.waitFor(hasUpload, timeout, "\u5C01\u9762\u5236\u4F5C\u6CA1\u6709\u6253\u5F00", coverInput);
+  if (!await page.evaluate(syncCoverRatios)) throw Error("\u6CA1\u80FD\u52FE\u4E0A\u300C\u53CC\u6BD4\u4F8B\u540C\u6B65\u6539\u52A8\u300D\uFF0C16:9 \u5C01\u9762\u8BF7\u624B\u52A8\u786E\u8BA4");
   await page.checkpoint();
-  await page.upload(selector, file);
-  await page.waitFor(coverCropReady, timeout, "\u5C01\u9762\u88C1\u5207\u9884\u89C8\u5C1A\u672A\u8F7D\u5165");
-  await page.waitFor(clickControl, timeout, "\u65E0\u6CD5\u5E94\u7528\u5C01\u9762\u88C1\u5207", {
-    selector: '.cover-select .cover-select-footer :is(button, [role="button"])',
-    exactText: "\u5B8C\u6210"
-  });
+  await page.upload(coverInput, file);
+  await delay(Math.min(timeout, 2500));
+  await page.waitFor(finishCover, timeout, "\u6CA1\u627E\u5230\u300C\u5C01\u9762\u5236\u4F5C\u300D\u7684\u300C\u5B8C\u6210\u300D");
   let deadline = Date.now() + timeout;
   while (deadline += await page.checkpoint(), Date.now() < deadline) {
-    if (!await page.evaluate(coverDialogOpen)) {
-      const current = await page.evaluate(appliedCover);
-      if (current && current !== previous) return;
-    }
+    if (!await page.evaluate(coverDialogOpen) && await page.evaluate(appliedCover)) return;
     await delay(Math.min(timeout, 250));
   }
   throw Error("B \u7AD9\u9875\u9762\u672A\u786E\u8BA4\u5E94\u7528\u65B0\u5C01\u9762");

@@ -45,7 +45,7 @@ async function pageFor(name: string) {
   const profile = path.join(root, name); fs.mkdirSync(profile, { recursive: true });
   const browser = await openBrowser(profile, { headless: true }); browsers.push(browser);
   const page = await Page.create(browser, origin); await page.navigate(origin + '/york/videoup');
-  await page.waitFor(() => document.querySelector('#bili-upload-btn input') !== null, 5000, '测试上传页未加载');
+  await page.waitFor(() => document.querySelector('.bcc-upload-wrapper input') !== null, 5000, '测试上传页未加载');
   return { page, browser, profile };
 }
 function media() {
@@ -60,9 +60,9 @@ it('上传视频、填写标题简介标签并应用封面，等待人工投稿'
   const { page } = await pageFor('upload');
   await expect(preparePage(page, media(), () => {}, { timeout: 4000 })).resolves.toEqual([]);
   expect(await page.evaluate(() => ({
-    title: document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value,
+    title: document.querySelector<HTMLInputElement>('.video-title input')?.value,
     desc: document.querySelector<HTMLElement>('.ql-editor')?.innerText,
-    tags: [...document.querySelectorAll('.content-tag-v2-pre-wrp span')].map(el => el.textContent),
+    tags: [...document.querySelectorAll('#tag-container .label-item-v2-content')].map(el => el.textContent),
     video: (window as any).video, cover: (window as any).cover, submits: (window as any).submits,
   }))).toEqual({ title: '发布标题', desc: '视频简介', tags: ['科技', '开源'], video: 'video.mp4', cover: 'cover.png', submits: 0 });
   await expect(page.click('#submit')).rejects.toThrow('不允许');
@@ -71,7 +71,7 @@ it('视频上传失败时保留页面，停止填表', async () => {
   const { page } = await pageFor('failed');
   await page.evaluate(() => { (window as any).failVideo = true; });
   await expect(preparePage(page, media(), () => {}, { timeout: 3500 })).rejects.toThrow('上传失败');
-  expect(await page.evaluate(() => document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value)).toBe('');
+  expect(await page.evaluate(() => document.querySelector<HTMLInputElement>('.video-title input')?.value)).toBe('');
 });
 it('只保存已登录用户的精确 UID、昵称和 B 站头像', async () => {
   const { page } = await pageFor('profile');
@@ -86,14 +86,14 @@ it('只保存已登录用户的精确 UID、昵称和 B 站头像', async () => 
   expect(await page.evaluate(scripts.loginInfo)).toBeNull();
 });
 
-const title = () => document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value;
+const title = () => document.querySelector<HTMLInputElement>('.video-title input')?.value;
 /** 选好视频后切到编辑区，状态文字交给测试控制（window.showEditor）。 */
 async function installEditor(page: Page) {
   await page.evaluate(() => {
     (window as any).showEditor = (text: string) => {
       document.querySelector<HTMLElement>('.upload-v2-step1-container')!.hidden = true;
       document.querySelector<HTMLElement>('.upload-v2-step2-container')!.hidden = false;
-      document.querySelector('.upload-status-intro')!.textContent = text;
+      document.querySelector('#status')!.textContent = text;
     };
   });
 }
@@ -101,12 +101,12 @@ async function installEditor(page: Page) {
 it('大视频上传超过单步时限也一直等，进度在走就传完接着填写', async () => {
   const { page } = await pageFor('slow-upload');
   await page.evaluate(() => {
-    const video = document.querySelector<HTMLInputElement>('#bili-upload-btn input')!;
+    const video = document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!;
     video.onchange = () => {
       (window as any).video = video.files![0].name;
       document.querySelector<HTMLElement>('.upload-v2-step1-container')!.hidden = true;
       document.querySelector<HTMLElement>('.upload-v2-step2-container')!.hidden = false;
-      const status = document.querySelector<HTMLElement>('.upload-status-intro')!;
+      const status = document.querySelector<HTMLElement>('#status')!;
       let percent = 0;
       status.textContent = '上传中 0%';
       const timer = setInterval(() => {
@@ -132,9 +132,9 @@ it('窗口开着时上传卡住也不设时限，等 B 站传完照样接着填�
   const { page } = await pageFor('stalled-upload');
   await installEditor(page);
   await page.evaluate(() => {
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.onchange = () => {
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.onchange = () => {
       (window as any).showEditor('上传中 40%');
-      setTimeout(() => { document.querySelector('.upload-status-intro')!.textContent = '上传完成'; }, 2500);
+      setTimeout(() => { document.querySelector('#status')!.textContent = '上传完成'; }, 2500);
     };
   });
   await expect(preparePage(page, media(), () => {}, { timeout: 1000 })).resolves.toEqual([]);
@@ -145,7 +145,7 @@ it('页面离开创作中心时停止等待', async () => {
   const { page } = await pageFor('left-page');
   await installEditor(page);
   await page.evaluate(() => {
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.onchange = () => {
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.onchange = () => {
       (window as any).showEditor('上传中 40%');
       setTimeout(() => { location.href = 'about:blank'; }, 300);
     };
@@ -160,17 +160,17 @@ it('窗口停在编辑区时接着上次的上传填写，不再上传一次视�
   await installEditor(page);
   await page.evaluate(() => {
     (window as any).videoUploads = 0;
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.onchange = () => { (window as any).videoUploads++; };
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.onchange = () => { (window as any).videoUploads++; };
     (window as any).showEditor('上传中 40%');
   });
   expect(await canResume(page)).toBe(true);
-  await page.evaluate(() => setTimeout(() => { document.querySelector('.upload-status-intro')!.textContent = '上传完成'; }, 500));
+  await page.evaluate(() => setTimeout(() => { document.querySelector('#status')!.textContent = '上传完成'; }, 500));
   const uploaded = vi.fn();
   await expect(preparePage(page, media(), () => {}, { timeout: 2000, resume: true, onUpload: uploaded })).resolves.toEqual([]);
   expect(uploaded).not.toHaveBeenCalled();
   expect(await page.evaluate(() => ({
     uploads: (window as any).videoUploads,
-    title: document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value,
+    title: document.querySelector<HTMLInputElement>('.video-title input')?.value,
     cover: (window as any).cover,
     submits: (window as any).submits,
   }))).toEqual({ uploads: 0, title: '发布标题', cover: 'cover.png', submits: 0 });
@@ -187,9 +187,9 @@ it('只有进度条在走、文字不变时不算卡住，并按进度条报百�
   const { page } = await pageFor('bar-only');
   await installEditor(page);
   await page.evaluate(() => {
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.onchange = () => {
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.onchange = () => {
       (window as any).showEditor('上传中');
-      const status = document.querySelector<HTMLElement>('.upload-status-intro')!;
+      const status = document.querySelector<HTMLElement>('#status')!;
       status.insertAdjacentHTML('afterend', '<div class="bar" role="progressbar" aria-valuemax="200" aria-valuenow="0" style="width: 1%; height: 2px"></div>');
       const bar = document.querySelector<HTMLElement>('.bar')!;
       let value = 0;
@@ -212,11 +212,11 @@ it('上传中弹出验证：停下全部自动操作交给用户，验证没了�
   await installEditor(page);
   await page.evaluate(() => {
     document.body.insertAdjacentHTML('beforeend', '<div class="geetest_panel" style="display:none;width:300px;height:200px"></div>');
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.onchange = () => {
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.onchange = () => {
       (window as any).showEditor('上传中 30%');
       // 上传途中 B 站弹出安全验证（普通弹窗）；隐藏着的极验容器不算。
       setTimeout(() => document.body.insertAdjacentHTML('beforeend', '<div role="dialog" id="verify" style="width:320px;height:200px">安全验证 请完成下列验证后继续</div>'), 200);
-      setTimeout(() => { document.querySelector('.upload-status-intro')!.textContent = '上传完成'; }, 400);
+      setTimeout(() => { document.querySelector('#status')!.textContent = '上传完成'; }, 400);
     };
   });
   const events: string[] = [];
@@ -241,7 +241,7 @@ it('认得出极验验证码与身份确认弹窗，不把封面裁切弹窗当�
   expect(await page.evaluate(scripts.verificationOpen)).toBe(false);
   await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div class="geetest_box" style="display:none;width:300px;height:200px"></div><div class="geetest_tiny" style="width:4px;height:4px"></div>'));
   expect(await page.evaluate(scripts.verificationOpen)).toBe(false);
-  await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div class="bcc-dialog" id="cover" style="width:300px;height:200px"><div class="cover-select">封面裁切 请拖动选框后完成验证码无关</div></div>'));
+  await page.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<div class="bcc-dialog" id="cover" style="width:300px;height:200px"><div class="cover-editor">封面制作 请拖动选框后完成验证码无关</div></div>'));
   expect(await page.evaluate(scripts.verificationOpen)).toBe(false);
   await page.evaluate(() => { document.querySelector('#cover')!.remove(); document.body.insertAdjacentHTML('beforeend', '<div class="geetest_panel" id="geetest" style="width:300px;height:200px"></div>'); });
   expect(await page.evaluate(scripts.verificationOpen)).toBe(true);
@@ -256,19 +256,19 @@ async function withSavedDrafts(page: Page, files: { fileTitle: string; size: num
   await page.evaluate((videos) => {
     localStorage.setItem('bili_videoup_record', JSON.stringify({ mid: 1, generation: 0, data: videos.map((video, i) => ({ id: `archive_id_${i}`, version: 2, title: video.fileTitle, videos: [{ filename: 'n2611', cid: 1, ...video }] })) }));
     (window as any).videoUploads = 0; (window as any).gaveUp = 0;
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.addEventListener('change', () => (window as any).videoUploads++);
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.addEventListener('change', () => (window as any).videoUploads++);
     document.body.insertAdjacentHTML('afterbegin', `<div class="entrance-tip"><div class="content"><div class="tip-text"><span>本地浏览器存在${videos.length}个未提交的视频</span></div><div class="tip-btn-group"><div id="continue"> 继续编辑 </div><div id="give-up"> 不用了 </div></div></div></div>`);
     document.querySelector<HTMLElement>('#continue')!.onclick = () => {
       document.querySelector('.entrance-tip')!.remove();
       document.querySelector<HTMLElement>('.upload-v2-step1-container')!.hidden = true;
       document.querySelector<HTMLElement>('.upload-v2-step2-container')!.hidden = false;
-      document.querySelector('.upload-status-intro')!.textContent = '上传完成';
+      document.querySelector('#status')!.textContent = '上传完成';
     };
     document.querySelector<HTMLElement>('#give-up')!.onclick = () => (window as any).gaveUp++;
   }, files);
 }
 const draftState = () => ({ uploads: (window as any).videoUploads, gaveUp: (window as any).gaveUp, prompt: !!document.querySelector('.entrance-tip'),
-  title: document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value, submits: (window as any).submits });
+  title: document.querySelector<HTMLInputElement>('.video-title input')?.value, submits: (window as any).submits });
 
 it('B 站里没投稿的就是这个成片：点「继续编辑」接着填写，不重新上传', async () => {
   const { page } = await pageFor('draft-same');
@@ -300,7 +300,7 @@ it('这个成片已经投过：不上传，说明何时投的；点了「仍然�
   const { page } = await pageFor('published');
   await page.evaluate(() => {
     (window as any).videoUploads = 0;
-    document.querySelector<HTMLInputElement>('#bili-upload-btn input')!.addEventListener('change', () => (window as any).videoUploads++);
+    document.querySelector<HTMLInputElement>('.bcc-upload-wrapper input')!.addEventListener('change', () => (window as any).videoUploads++);
     const real = window.fetch;
     window.fetch = async (input, init) => String(input).startsWith('/x/web/archives')
       ? Response.json({ code: 0, data: { page: { count: 2 }, arc_audits: [
@@ -324,7 +324,7 @@ it('读不到已投稿件时照常上传，并提醒用户留意', async () => {
     window.fetch = async (input, init) => String(input).startsWith('/x/web/') ? new Response('', { status: 500 }) : real(input, init);
   });
   await expect(preparePage(page, media(), () => {}, { timeout: 2000 })).resolves.toEqual([expect.stringContaining('没能读到这个账号已投的稿件')]);
-  expect(await page.evaluate(() => document.querySelector<HTMLInputElement>('.content-title-v2-input-wrp input')?.value)).toBe('发布标题');
+  expect(await page.evaluate(() => document.querySelector<HTMLInputElement>('.video-title input')?.value)).toBe('发布标题');
 });
 
 it('读稿件列表：翻页读完为止，整秒时长换成毫秒', async () => {
@@ -341,4 +341,15 @@ it('读稿件列表：翻页读完为止，整秒时长换成毫秒', async () =
   expect(works![30]).toEqual({ title: '稿件31', duration: 31_000, time: 1795000031, state: '开放浏览', reviewing: false, is_private: true });
   await page.evaluate(() => { window.fetch = async () => Response.json({ code: -101 }); });
   expect(await page.evaluate(scripts.recentWorks, 3)).toBeNull();
+});
+
+it('删掉 B 站预填的标签、封面勾上双比例同步；创作声明没选时提醒用户，不替用户选', async () => {
+  const { page } = await pageFor('statement-and-cover');
+  await page.evaluate(() => { document.querySelector<HTMLInputElement>('.statement-content input')!.value = ''; });
+  const warnings = await preparePage(page, media(), () => {}, { timeout: 5000 });
+  expect(warnings).toEqual(['请在 B 站选择「创作声明」（必填）。']);
+  expect(await page.evaluate(() => ({
+    tags: [...document.querySelectorAll('#tag-container .label-item-v2-content')].map(el => el.textContent),
+    synced: (window as any).coverSynced, statement: document.querySelector<HTMLInputElement>('.statement-content input')!.value,
+  }))).toEqual({ tags: media().tags, synced: true, statement: '' });
 });

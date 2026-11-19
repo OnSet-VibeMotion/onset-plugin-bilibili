@@ -1,23 +1,42 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>B 站创作中心</title>
-<div class="upload-v2-step1-container"><div id="bili-upload-btn"><input type="file" accept=".mp4,.mov" hidden></div></div>
+<!-- 结构照 2026-11-19 的真实投稿页（member.bilibili.com/york/videoup）写：只保留插件用到的部分。 -->
+<div class="upload-v2-step1-container"><div class="bcc-upload upload"><div class="bcc-upload-wrapper"><input type="file" accept=".mp4,.flv,.mov" style="width: 10px; height: 10px; opacity: 0"></div></div></div>
 <div class="upload-v2-step2-container" hidden>
-  <span class="upload-status-intro">上传中</span>
-  <div class="content-title-v2-input-wrp"><input placeholder="请输入稿件标题"></div>
-  <div class="content-desc-v2-text-wrp"><div class="ql-editor" contenteditable="true" style="min-height: 24px"></div></div>
-  <div id="content-tag-v2-container"><input placeholder="按回车键Enter创建标签"><div class="content-tag-v2-pre-wrp"></div></div>
-  <div class="cover-content"><div class="cover-upload"><div class="img" style="width: 60px; height: 40px; background-image: url('https://i0.hdslb.com/old.jpg')"></div></div></div>
-  <button id="submit">立即投稿</button>
+  <div class="file-item-content-detail"><div class="file-item-content-status"><div class="file-item-content-status-text" id="status">上传中...</div></div></div>
+  <div class="cover-module cover-module-main"><div class="cover-slot"><div class="cover-empty" style="width: 60px; height: 40px">添加封面</div></div></div>
+  <div class="video-title"><div class="input-container"><input class="input-val" placeholder="请输入稿件标题" value=""></div></div>
+  <div class="statement-content"><input class="bcc-select-input-inner" placeholder="请选择符合您视频内容的创作声明" value="该视频为原创内容"></div>
+  <div id="tag-container" class="tag-container"><div class="tag-input-wrp"><div class="input-container">
+    <div class="tag-pre-wrp"></div><input class="input-val" placeholder="按回车键Enter创建标签">
+  </div></div></div>
+  <div class="desc-container"><div class="editor ql-container"><div class="ql-editor" contenteditable="true" style="min-height: 24px"></div></div></div>
+  <span class="submit-add" id="submit">立即投稿</span>
 </div>
 <div id="modal-root"></div>
 <script>
   window.submits = 0;
-  const video = document.querySelector('#bili-upload-btn input');
+  const video = document.querySelector('.bcc-upload-wrapper input');
   const modal = document.querySelector('#modal-root');
-  const status = document.querySelector('.upload-status-intro');
-  const picture = document.querySelector('.cover-upload .img');
+  const status = document.querySelector('#status');
+  const slot = document.querySelector('.cover-slot');
+  const tags = document.querySelector('.tag-pre-wrp');
   document.querySelector('#submit').onclick = () => window.submits++;
+  // 真实页面传完时显示 <span class="success">上传完成</span>：测试只写文字，这里替它包上。
+  new MutationObserver(() => {
+    if (status.textContent.trim() === '上传完成' && !status.querySelector('.success')) status.innerHTML = '<span class="success">上传完成</span>';
+  }).observe(status, { childList: true, characterData: true, subtree: true });
+  window.addTag = name => {
+    const chip = document.createElement('div');
+    chip.className = 'label-item-v2-container';
+    chip.innerHTML = '<p class="label-item-v2-content"></p><svg class="close" width="8" height="8"></svg>';
+    chip.querySelector('p').textContent = name;
+    chip.querySelector('.close').addEventListener('click', () => chip.remove());
+    tags.append(chip);
+  };
+  // B 站会自己预填几个标签。
+  for (const name of ['生活记录', '校园']) window.addTag(name);
   video.onchange = () => {
     if (!video.files.length) return;
     window.video = video.files[0].name;
@@ -25,28 +44,26 @@
     document.querySelector('.upload-v2-step2-container').hidden = false;
     setTimeout(() => status.textContent = window.failVideo ? '上传错误' : '上传完成', 120);
   };
-  document.querySelector('#content-tag-v2-container input').onkeydown = event => {
-    if (event.key !== 'Enter') return;
-    const chip = document.createElement('span');
-    chip.textContent = event.target.value;
-    document.querySelector('.content-tag-v2-pre-wrp').append(chip);
+  document.querySelector('#tag-container input').onkeydown = event => {
+    if (event.key !== 'Enter' || !event.target.value) return;
+    window.addTag(event.target.value);
     event.target.value = '';
   };
-  picture.onclick = () => {
-    modal.innerHTML = '<div class="cover-select"><div class="cover-select-content-upload"><input type="file" accept="image/png,image/jpeg" hidden><div class="cover-cropper"></div></div><div class="cover-select-footer"><button disabled>完成</button></div></div>';
+  // 「封面制作」：要先勾「双比例同步改动」，放进图片后点「完成」，编辑页的封面换成新图。
+  slot.onclick = () => {
+    modal.innerHTML = '<div class="cover-editor bcc-dialog__wrap"><div class="sync sync-checkbox-wrapper"><span>双比例同步改动</span><label class="sync-checkbox bcc-checkbox"><span class="bcc-checkbox-checkbox"></span></label></div>'
+      + '<div class="bcc-upload cover-upload"><div class="bcc-upload-wrapper"><input type="file" accept="image/png, image/jpeg" style="width: 10px; height: 10px; opacity: 0"></div></div>'
+      + '<div class="cover-editor-button"><span>取消</span></div><div class="cover-editor-button"><span id="done">完成</span></div></div>';
+    const box = modal.querySelector('.bcc-checkbox');
+    box.onclick = () => box.classList.toggle('bcc-checkbox-checked');
     const input = modal.querySelector('input');
-    const done = modal.querySelector('button');
     let file;
-    input.onchange = () => {
-      file = input.files[0];
-      input.value = '';
+    input.onchange = () => { file = input.files[0]; input.value = ''; };
+    modal.querySelector('#done').onclick = () => {
       if (!file) return;
-      modal.querySelector('.cover-cropper').innerHTML = '<img width="20" height="20" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">';
-      setTimeout(() => { done.disabled = false; }, 300);
-    };
-    done.onclick = () => {
       window.cover = file.name;
-      picture.style.backgroundImage = 'url("https://i0.hdslb.com/new.jpg")';
+      window.coverSynced = box.classList.contains('bcc-checkbox-checked');
+      slot.innerHTML = '<div class="cover-img" style="width: 60px; height: 40px; background-image: url(&quot;https://archive.biliimg.com/new.jpg&quot;)"><span class="edit-text">封面设置</span></div>';
       modal.replaceChildren();
     };
   };

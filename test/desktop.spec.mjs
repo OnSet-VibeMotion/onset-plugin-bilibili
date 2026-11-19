@@ -71,9 +71,9 @@ ${stringify({
   expect(await electronApp.evaluate(async ({ webContents }) => {
     const wc = webContents.getAllWebContents().find(w => w.getURL() === 'https://member.bilibili.com/york/videoup');
     return wc.executeJavaScript(`({
-      title: document.querySelector('.content-title-v2-input-wrp input').value,
+      title: document.querySelector('.video-title input').value,
       desc: document.querySelector('.ql-editor').innerText,
-      tag: document.querySelector('.content-tag-v2-pre-wrp').innerText,
+      tag: [...document.querySelectorAll('#tag-container .label-item-v2-content')].map(n => n.textContent).join(','),
       cover: window.cover, video: window.video, submits: window.submits
     })`);
   })).toEqual({ title: '片场内自动填写', desc: '检查稿件后再投稿', tag: '开源', cover: 'cover.png', video: 'final.mp4', submits: 0 });
