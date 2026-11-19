@@ -4,7 +4,7 @@
     "onset": "0.1.0"
   },
   "id": "bilibili-upload",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "name": "B 站上传助手",
   "description": "选择 B 站账号，在片场客户端内自动上传成片、封面并填入文案，最后由你检查并发布。",
   "after": "publish",

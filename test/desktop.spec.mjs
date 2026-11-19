@@ -69,7 +69,7 @@ ${stringify({
   }, { timeout: 25_000 }).toEqual({ status: 'ready_to_publish', warnings: [], message: undefined });
 
   expect(await electronApp.evaluate(async ({ webContents }) => {
-    const wc = webContents.getAllWebContents().find(w => w.getURL() === 'https://member.bilibili.com/video/upload.html');
+    const wc = webContents.getAllWebContents().find(w => w.getURL() === 'https://member.bilibili.com/york/videoup');
     return wc.executeJavaScript(`({
       title: document.querySelector('.content-title-v2-input-wrp input').value,
       desc: document.querySelector('.ql-editor').innerText,

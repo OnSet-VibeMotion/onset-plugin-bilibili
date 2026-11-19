@@ -44,7 +44,7 @@ afterAll(async () => {
 async function pageFor(name: string) {
   const profile = path.join(root, name); fs.mkdirSync(profile, { recursive: true });
   const browser = await openBrowser(profile, { headless: true }); browsers.push(browser);
-  const page = await Page.create(browser, origin); await page.navigate(origin + '/video/upload.html');
+  const page = await Page.create(browser, origin); await page.navigate(origin + '/york/videoup');
   await page.waitFor(() => document.querySelector('#bili-upload-btn input') !== null, 5000, '测试上传页未加载');
   return { page, browser, profile };
 }

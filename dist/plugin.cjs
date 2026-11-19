@@ -7752,7 +7752,7 @@ function editorVideoDuration() {
 
 // src/cdp.ts
 var CreatorOrigin = "https://member.bilibili.com";
-var UploadPath = "/video/upload.html";
+var UploadPath = "/york/videoup";
 var LoginPath = "/platform/upload/video/frame";
 var delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 var Page = class _Page {

@@ -56,7 +56,11 @@ export class CDP {
 }
 
 export const CreatorOrigin = 'https://member.bilibili.com';
-export const UploadPath = '/video/upload.html';
+/**
+ * 投稿页的真实地址。旧地址 /video/upload.html 会被页面脚本立刻改成这里，片场还在加载旧地址时被打断（ERR_ABORTED），
+ * 插件就在打开页面这一步失败了（2026-11-19 在真实页面上核对过：直接打开这里没有跳转，0.6 秒出上传框）。
+ */
+export const UploadPath = '/york/videoup';
 export const LoginPath = '/platform/upload/video/frame';
 export const delay = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 export class Page {

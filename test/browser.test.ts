@@ -19,7 +19,7 @@ it('经客户端连接控制已有页面，不申请外部标签页；断开后�
   const browser = await openBrowser('/unused', { bridge, account: 'account-a', label: '工作号' });
   expect(browser.reused).toBe(true);
   const page = await Page.create(browser);
-  await page.navigate('https://member.bilibili.com/video/upload.html');
+  await page.navigate('https://member.bilibili.com/york/videoup');
   expect(calls.map(c => c.action === 'open' ? 'open' : c.method)).toEqual(['open', 'Page.enable', 'Page.bringToFront', 'Page.navigate']);
   await expect(browser.send('Unsupported')).rejects.toThrow('不支持');
   browser.disconnect();

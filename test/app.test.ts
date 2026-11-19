@@ -142,7 +142,7 @@ it('换了成片、页面已离开编辑区或上传失败时回到上传页重�
     deps.open.mockResolvedValueOnce({ disconnect, reused: true } as unknown as BrowserConnection);
     loggedIn(evaluate, account.user_id, ...(editor ? [editor, { state, text: '', percent: null }] : [editor]));
     await runOperation('prepare', request, () => {}, deps);
-    expect(navigate).toHaveBeenCalledWith('https://member.bilibili.com/video/upload.html');
+    expect(navigate).toHaveBeenCalledWith('https://member.bilibili.com/york/videoup');
     expect(deps.prepare.mock.calls[0][3]).toMatchObject({ resume: false });
   }
 });
