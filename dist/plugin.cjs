@@ -106,17 +106,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path5) {
-      const ctrl = callVisitor(key, node, visitor, path5);
+    function visit_(key, node, visitor, path6) {
+      const ctrl = callVisitor(key, node, visitor, path6);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path5, ctrl);
-        return visit_(key, ctrl, visitor, path5);
+        replaceNode(key, path6, ctrl);
+        return visit_(key, ctrl, visitor, path6);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path5 = Object.freeze(path5.concat(node));
+          path6 = Object.freeze(path6.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = visit_(i, node.items[i], visitor, path5);
+            const ci = visit_(i, node.items[i], visitor, path6);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -127,13 +127,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path5 = Object.freeze(path5.concat(node));
-          const ck = visit_("key", node.key, visitor, path5);
+          path6 = Object.freeze(path6.concat(node));
+          const ck = visit_("key", node.key, visitor, path6);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path5);
+          const cv = visit_("value", node.value, visitor, path6);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -154,17 +154,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path5) {
-      const ctrl = await callVisitor(key, node, visitor, path5);
+    async function visitAsync_(key, node, visitor, path6) {
+      const ctrl = await callVisitor(key, node, visitor, path6);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path5, ctrl);
-        return visitAsync_(key, ctrl, visitor, path5);
+        replaceNode(key, path6, ctrl);
+        return visitAsync_(key, ctrl, visitor, path6);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path5 = Object.freeze(path5.concat(node));
+          path6 = Object.freeze(path6.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            const ci = await visitAsync_(i, node.items[i], visitor, path5);
+            const ci = await visitAsync_(i, node.items[i], visitor, path6);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -175,13 +175,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path5 = Object.freeze(path5.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path5);
+          path6 = Object.freeze(path6.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path6);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path5);
+          const cv = await visitAsync_("value", node.value, visitor, path6);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -208,23 +208,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path5) {
+    function callVisitor(key, node, visitor, path6) {
       if (typeof visitor === "function")
-        return visitor(key, node, path5);
+        return visitor(key, node, path6);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path5);
+        return visitor.Map?.(key, node, path6);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path5);
+        return visitor.Seq?.(key, node, path6);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path5);
+        return visitor.Pair?.(key, node, path6);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path5);
+        return visitor.Scalar?.(key, node, path6);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path5);
+        return visitor.Alias?.(key, node, path6);
       return void 0;
     }
-    function replaceNode(key, path5, node) {
-      const parent = path5[path5.length - 1];
+    function replaceNode(key, path6, node) {
+      const parent = path6[path6.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -836,10 +836,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path5, value) {
+    function collectionFromPath(schema, path6, value) {
       let v = value;
-      for (let i = path5.length - 1; i >= 0; --i) {
-        const k = path5[i];
+      for (let i = path6.length - 1; i >= 0; --i) {
+        const k = path6[i];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -858,7 +858,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path5) => path5 == null || typeof path5 === "object" && !!path5[Symbol.iterator]().next().done;
+    var isEmptyPath = (path6) => path6 == null || typeof path6 === "object" && !!path6[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -888,11 +888,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path5, value) {
-        if (isEmptyPath(path5))
+      addIn(path6, value) {
+        if (isEmptyPath(path6))
           this.add(value);
         else {
-          const [key, ...rest] = path5;
+          const [key, ...rest] = path6;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -906,8 +906,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path5) {
-        const [key, ...rest] = path5;
+      deleteIn(path6) {
+        const [key, ...rest] = path6;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -921,8 +921,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path5, keepScalar) {
-        const [key, ...rest] = path5;
+      getIn(path6, keepScalar) {
+        const [key, ...rest] = path6;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -940,8 +940,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path5) {
-        const [key, ...rest] = path5;
+      hasIn(path6) {
+        const [key, ...rest] = path6;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -951,8 +951,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path5, value) {
-        const [key, ...rest] = path5;
+      setIn(path6, value) {
+        const [key, ...rest] = path6;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -3467,9 +3467,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path5, value) {
+      addIn(path6, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path5, value);
+          this.contents.addIn(path6, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -3544,14 +3544,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path5) {
-        if (Collection.isEmptyPath(path5)) {
+      deleteIn(path6) {
+        if (Collection.isEmptyPath(path6)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path5) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path6) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -3566,10 +3566,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path5, keepScalar) {
-        if (Collection.isEmptyPath(path5))
+      getIn(path6, keepScalar) {
+        if (Collection.isEmptyPath(path6))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path5, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path6, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -3580,10 +3580,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path5) {
-        if (Collection.isEmptyPath(path5))
+      hasIn(path6) {
+        if (Collection.isEmptyPath(path6))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path5) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path6) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -3600,13 +3600,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path5, value) {
-        if (Collection.isEmptyPath(path5)) {
+      setIn(path6, value) {
+        if (Collection.isEmptyPath(path6)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path5), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path6), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path5, value);
+          this.contents.setIn(path6, value);
         }
       }
       /**
@@ -5567,9 +5567,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path5) => {
+    visit.itemAtPath = (cst, path6) => {
       let item = cst;
-      for (const [field, index] of path5) {
+      for (const [field, index] of path6) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index];
@@ -5578,23 +5578,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path5) => {
-      const parent = visit.itemAtPath(cst, path5.slice(0, -1));
-      const field = path5[path5.length - 1][0];
+    visit.parentCollection = (cst, path6) => {
+      const parent = visit.itemAtPath(cst, path6.slice(0, -1));
+      const field = path6[path6.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path5, item, visitor) {
-      let ctrl = visitor(item, path5);
+    function _visit(path6, item, visitor) {
+      let ctrl = visitor(item, path6);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            const ci = _visit(Object.freeze(path5.concat([[field, i]])), token.items[i], visitor);
+            const ci = _visit(Object.freeze(path6.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci === "number")
               i = ci - 1;
             else if (ci === BREAK)
@@ -5605,10 +5605,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path5);
+            ctrl = ctrl(item, path6);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path5) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path6) : ctrl;
     }
     exports2.visit = visit;
   }
@@ -7360,7 +7360,7 @@ var require_dist = __commonJS({
 });
 
 // src/app.ts
-var import_node_path4 = __toESM(require("node:path"), 1);
+var import_node_path5 = __toESM(require("node:path"), 1);
 
 // src/accounts.ts
 var import_node_fs2 = __toESM(require("node:fs"), 1);
@@ -7510,6 +7510,23 @@ var AccountStore = class {
     import_node_fs2.default.rmSync(import_node_path2.default.join(this.root, id), { recursive: true, force: true });
     import_node_fs2.default.rmSync(import_node_path2.default.join(import_node_fs2.default.realpathSync(this.dataDir), "web-sessions", id), { recursive: true, force: true });
   }
+  /**
+   * 这个账号的 B 站窗口里最近一次由插件放进去的成片（sha256）。窗口还停在它的编辑区时，再点「上传并填写」接着这次的上传，
+   * 不重传。只记成片的摘要，不记项目路径与文案。
+   */
+  lastUpload(id) {
+    if (!accountID.test(id)) return void 0;
+    try {
+      const value = readSmallJSON(import_node_path2.default.join(this.root, id, "upload.json"));
+      return typeof value?.video_sha256 === "string" ? value.video_sha256 : void 0;
+    } catch {
+      return void 0;
+    }
+  }
+  recordUpload(id, videoHash) {
+    this.get(id);
+    atomicJSON(import_node_path2.default.join(childDirectory(this.root, id), "upload.json"), { video_sha256: videoHash, uploaded_at: (/* @__PURE__ */ new Date()).toISOString() });
+  }
   profile(id) {
     this.get(id);
     return childDirectory(this.root, `${id}/browser`);
@@ -7550,7 +7567,7 @@ async function withAccountLock(profile, run) {
 }
 
 // src/page-scripts.ts
-var videoInput = '#bili-upload-btn input[type="file"], .upload-v2-step1-container input[type="file"], input[type="file"][accept*="video/"]';
+var videoInput = '.bcc-upload-wrapper input[type="file"], #bili-upload-btn input[type="file"], .upload-v2-step1-container input[type="file"]';
 var coverInput = '.cover-select .cover-select-content-upload input[type="file"]';
 var initialCoverInput = '.cover-content .cover-upload input[type="file"]';
 function query(selector) {
@@ -7561,9 +7578,28 @@ function hasUpload(selector) {
   return [...document.querySelectorAll(selector)].filter((input) => !input.disabled && input.parentElement?.getClientRects().length).length === 1;
 }
 function videoStatus() {
-  const rows = [...document.querySelectorAll(".upload-status-intro")].filter((node) => node.getClientRects().length);
-  if (rows.some((row) => /上传错误|上传失败|处理失败/.test(row.innerText))) return "failed";
-  return rows.length === 1 && /^(上传完成|上传成功)$/.test(rows[0].innerText.trim()) ? "ready" : "waiting";
+  const visible = (node) => node.getClientRects().length > 0;
+  const rows = [...document.querySelectorAll(".upload-status-intro")].filter(visible);
+  const nodes = [...document.querySelectorAll('.upload-status-intro, [class*="file-item-content-status"], [class*="upload-progress"], [class*="progress-text"], [role="progressbar"]')].filter(visible);
+  const text2 = nodes.map((node) => node.innerText.trim()).filter(Boolean).join("\n").slice(0, 500);
+  const bars = nodes.flatMap((node) => [node, ...node.querySelectorAll('[role="progressbar"]')]);
+  const match = text2.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
+  const bar = bars.find((node) => node.hasAttribute("aria-valuenow"));
+  const value = Number(bar?.getAttribute("aria-valuenow")), max = Number(bar?.getAttribute("aria-valuemax") || 100);
+  const percent = match ? Math.min(100, Number(match[1])) : bar && Number.isFinite(value) && max > 0 ? Math.min(100, Math.max(0, value / max * 100)) : null;
+  if (/上传错误|上传失败|处理失败|转码失败/.test(text2)) return { state: "failed", text: text2, percent };
+  if (rows.length === 1 && /^(上传完成|上传成功)$/.test(rows[0].innerText.trim())) return { state: "ready", text: text2, percent };
+  return { state: nodes.length ? "uploading" : "none", text: text2, percent };
+}
+function editorOpen() {
+  return [...document.querySelectorAll(".content-title-v2-input-wrp input")].some((input) => input.getClientRects().length > 0 && !input.disabled);
+}
+function verificationOpen() {
+  const visible = (node) => node.getClientRects().length > 0 && node.offsetWidth > 20 && node.offsetHeight > 20;
+  const cover = (node) => !!node.closest(".cover-select") || !!node.querySelector(".cover-select");
+  const widgets = '.geetest_panel, .geetest_box, .geetest_holder, .geetest_popup_wrap, [class*="geetest"], iframe[src*="captcha"], iframe[src*="geetest"], iframe[src*="verify"]';
+  if ([...document.querySelectorAll(widgets)].some((node) => visible(node) && !cover(node))) return true;
+  return [...document.querySelectorAll('[role="dialog"], [class*="bcc-dialog"], [class*="dialog"], [class*="modal"]')].some((dialog) => visible(dialog) && !cover(dialog) && /安全验证|身份验证|身份校验|短信验证|请完成.{0,6}验证|验证码|滑块|拖动.{0,4}完成/.test(dialog.innerText.slice(0, 300)));
 }
 function clickControl({ selector, exactText }) {
   const matches = [...document.querySelectorAll(selector)].filter((node2) => node2.getClientRects().length && (!exactText || node2.textContent?.trim() === exactText));
@@ -7647,6 +7683,72 @@ async function loginInfo() {
     return null;
   }
 }
+function draftPromptOpen() {
+  return [...document.querySelectorAll("span, div, p")].some((node) => node.childElementCount === 0 && node.getClientRects().length > 0 && /存在\s*\d+\s*个未提交的视频/.test(node.textContent ?? ""));
+}
+function savedDrafts() {
+  try {
+    const value = JSON.parse(localStorage.getItem("bili_videoup_record") ?? "null");
+    if (!Array.isArray(value?.data)) return [];
+    return value.data.map((item) => ({
+      title: String(item?.title ?? ""),
+      files: (Array.isArray(item?.videos) ? item.videos : []).filter((video) => typeof video?.size === "number").map((video) => ({ name: String(video.fileTitle ?? ""), size: video.size }))
+    }));
+  } catch {
+    return [];
+  }
+}
+function continueDraft() {
+  const nearPrompt = (node) => {
+    let parent = node.parentElement;
+    for (let level = 0; parent && level < 4; level++, parent = parent.parentElement) {
+      if (/个未提交的视频/.test(parent.innerText.slice(0, 200))) return true;
+    }
+    return false;
+  };
+  const buttons = [...document.querySelectorAll('div, span, button, [role="button"]')].filter((node) => node.getClientRects().length > 0 && node.textContent?.trim() === "\u7EE7\u7EED\u7F16\u8F91" && nearPrompt(node));
+  const candidates = buttons.filter((node) => !buttons.some((other) => other !== node && node.contains(other)));
+  if (candidates.length !== 1) return false;
+  candidates[0].click();
+  return true;
+}
+async function recentWorks(pages) {
+  const works = [];
+  for (let page = 1; page <= pages; page++) {
+    let data;
+    try {
+      const response = await fetch(`/x/web/archives?status=is_pubing%2Cpubed&pn=${page}&ps=30`, {
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: AbortSignal.timeout(8e3)
+      });
+      if (!response.ok) return page > 1 ? works : null;
+      data = await response.json();
+    } catch {
+      return page > 1 ? works : null;
+    }
+    const list = data?.data?.arc_audits ?? [];
+    if (data?.code !== 0 || !Array.isArray(list)) return page > 1 ? works : null;
+    for (const item of list) {
+      const archive = item?.Archive ?? {};
+      const state = Number(archive.state ?? 0);
+      works.push({
+        title: String(archive.title ?? ""),
+        duration: Number(archive.duration ?? 0) * 1e3,
+        time: Number(archive.ptime || archive.ctime || 0),
+        state: String(archive.state_desc ?? ""),
+        reviewing: state < 0,
+        is_private: Number(archive.is_only_self ?? 0) === 1
+      });
+    }
+    if (list.length < 30 || works.length >= Number(data.data.page?.count ?? 0)) break;
+  }
+  return works;
+}
+function editorVideoDuration() {
+  const durations = [...document.querySelectorAll("video")].map((video) => video.duration).filter((value) => Number.isFinite(value) && value > 0);
+  return durations.length ? Math.max(...durations) : null;
+}
 
 // src/cdp.ts
 var CreatorOrigin = "https://member.bilibili.com";
@@ -7692,9 +7794,15 @@ var Page = class _Page {
     if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description ?? "\u9875\u9762\u64CD\u4F5C\u5931\u8D25");
     return result.result.value;
   }
+  /** 每一步自动操作前的检查点（B 站弹出验证时停下交给用户），返回停了多少毫秒；没设就是 0。不能在里面调 waitFor。 */
+  guard;
+  async checkpoint() {
+    return this.guard ? this.guard() : 0;
+  }
   async waitFor(fn, timeout, message, arg) {
-    const deadline = Date.now() + timeout;
+    let deadline = Date.now() + timeout;
     do {
+      deadline += await this.checkpoint();
       try {
         if (await this.evaluate(fn, arg)) return;
       } catch (err) {
@@ -7739,7 +7847,14 @@ function validateBridge(value) {
 function connectBridge(value) {
   const bridge = validateBridge(value);
   let connected = true;
-  const request2 = async (body) => {
+  let queue = Promise.resolve();
+  const request2 = (body) => {
+    const run = queue.then(() => send(body));
+    queue = run.catch(() => {
+    });
+    return run;
+  };
+  const send = async (body) => {
     if (!connected) throw Error("\u7F51\u9875\u81EA\u52A8\u586B\u5199\u5DF2\u7ED3\u675F");
     const response = await fetch(bridge.endpoint, {
       method: "POST",
@@ -7771,6 +7886,12 @@ async function openBrowser(_profile, options) {
     state: async () => {
       const s = await bridge.request({ action: "state" });
       return { open: s.open === true, visible: s.visible === true };
+    },
+    busy: async (message, progress) => {
+      await bridge.request({ action: "busy", message: [...message.replace(/[\x00-\x1f\x7f]/g, " ")].slice(0, 80).join("") || "\u6B63\u5728\u5904\u7406", progress });
+    },
+    idle: async () => {
+      await bridge.request({ action: "busy", active: false });
     },
     close: async () => {
       await bridge.request({ action: "close" });
@@ -7837,7 +7958,61 @@ ${attribution}`;
   const videoHash = hash.digest("hex");
   if (video.sha256 && video.sha256 !== videoHash) throw Error("\u6210\u7247\u5DF2\u53D8\u52A8\uFF0C\u8BF7\u5148\u5237\u65B0\u53D1\u5E03\u4FE1\u606F");
   const covers = pickCovers(root, cover.images);
-  return { title, content, tags: normalizedTags, video: videoPath, videoHash, covers };
+  const stat = import_node_fs3.default.statSync(videoPath);
+  return {
+    title,
+    content,
+    tags: normalizedTags,
+    video: videoPath,
+    videoHash,
+    covers,
+    videoSize: stat.size,
+    videoModified: Math.floor(stat.mtimeMs),
+    videoDuration: mp4Duration(videoPath)
+  };
+}
+function mp4Duration(file) {
+  let fd;
+  try {
+    fd = import_node_fs3.default.openSync(file, "r");
+    const size = import_node_fs3.default.fstatSync(fd).size;
+    const read = (offset, length) => {
+      const buffer = Buffer.alloc(length);
+      return buffer.subarray(0, import_node_fs3.default.readSync(fd, buffer, 0, length, offset));
+    };
+    const boxes = function* (start, end) {
+      let offset = start;
+      while (offset + 8 <= end) {
+        const head = read(offset, 16);
+        if (head.length < 8) return;
+        let length = head.readUInt32BE(0), header = 8;
+        if (length === 1) {
+          if (head.length < 16) return;
+          length = Number(head.readBigUInt64BE(8));
+          header = 16;
+        } else if (length === 0) length = end - offset;
+        if (length < header) return;
+        yield { type: head.toString("latin1", 4, 8), start: offset + header, end: Math.min(offset + length, end) };
+        offset += length;
+      }
+    };
+    for (const top of boxes(0, size)) {
+      if (top.type !== "moov") continue;
+      for (const box of boxes(top.start, top.end)) {
+        if (box.type !== "mvhd") continue;
+        const body = read(box.start, 32);
+        const version = body[0];
+        const scale = version === 1 ? body.readUInt32BE(20) : body.readUInt32BE(12);
+        const duration = version === 1 ? Number(body.readBigUInt64BE(24)) : body.readUInt32BE(16);
+        return scale ? Math.round(duration * 1e3 / scale) : null;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fd !== void 0) import_node_fs3.default.closeSync(fd);
+  }
 }
 function pickCovers(root, images) {
   if (images === void 0) return {};
@@ -7860,35 +8035,129 @@ function pickCovers(root, images) {
 }
 
 // src/prepare.ts
-async function preparePage(page, draft, progress, options = {}) {
-  const timeout = options.timeout ?? 10 * 6e4;
-  progress(0.1, "\u6B63\u5728\u6253\u5F00 B \u7AD9\u89C6\u9891\u6295\u7A3F\u9875");
-  await page.waitFor(hasUpload, Math.min(timeout, 9e4), "\u627E\u4E0D\u5230 B \u7AD9\u89C6\u9891\u4E0A\u4F20\u5165\u53E3\uFF0C\u8BF7\u68C0\u67E5\u767B\u5F55\u72B6\u6001", videoInput);
-  await page.upload(videoInput, draft.video);
-  progress(0.2, "\u6B63\u5728\u4E0A\u4F20\u89C6\u9891\uFF0C\u8BF7\u4FDD\u7559 B \u7AD9\u7A97\u53E3");
-  const deadline = Date.now() + timeout;
-  for (; ; ) {
-    const status = await page.evaluate(videoStatus);
-    if (status === "ready") break;
-    if (status === "failed") throw Error("B \u7AD9\u663E\u793A\u89C6\u9891\u4E0A\u4F20\u5931\u8D25\uFF0C\u8BF7\u5728\u7A97\u53E3\u68C0\u67E5");
-    if (Date.now() >= deadline) throw Error("\u7B49\u5F85 B \u7AD9\u4E0A\u4F20\u5B8C\u6210\u8D85\u65F6\uFF0C\u8BF7\u5728\u7A97\u53E3\u68C0\u67E5");
-    await delay(Math.min(500, timeout));
+var import_node_path4 = __toESM(require("node:path"), 1);
+var AlreadyPublished = class extends Error {
+  constructor(work) {
+    const day = new Date(work.time * 1e3);
+    const date = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+    const notes = [work.reviewing ? work.state || "\u6B63\u5728\u5BA1\u6838" : "", work.is_private ? "\u4EC5\u81EA\u5DF1\u53EF\u89C1" : ""].filter(Boolean).map((note) => "\uFF0C" + note).join("");
+    super(`\u8FD9\u4E2A\u6210\u7247 ${date} \u5DF2\u7ECF\u6295\u5230\u8FD9\u4E2A B \u7AD9\u8D26\u53F7\u4E86\uFF08\u300C${work.title}\u300D${notes}\uFF09\uFF0C\u8FD9\u6B21\u6CA1\u6709\u4E0A\u4F20\u3002\u786E\u5B9E\u8981\u518D\u6295\u4E00\u6B21\uFF0C\u8BF7\u70B9\u300C\u4ECD\u7136\u4E0A\u4F20\u300D`);
+    this.work = work;
   }
+  work;
+};
+function findPublished(works, draft) {
+  const same = (a, b) => a.replace(/\s+/g, "") === b.replace(/\s+/g, "");
+  return works.find((work) => same(work.title, draft.title) && (draft.videoDuration == null || Math.abs(work.duration - draft.videoDuration) <= 1500));
+}
+function sameFilm(saved, draft) {
+  if (draft.videoSize === void 0 || saved.size !== draft.videoSize) return false;
+  return !saved.name || saved.name === import_node_path4.default.basename(draft.video, import_node_path4.default.extname(draft.video));
+}
+async function restoreDraft(page, draft, timeout) {
+  try {
+    await page.waitFor(draftPromptOpen, Math.min(timeout, 3e3), "");
+  } catch {
+    return false;
+  }
+  const saved = await page.evaluate(savedDrafts);
+  const ours = saved.filter((item) => item.files.some((file) => sameFilm(file, draft)));
+  if (saved.length === 1 && ours.length === 1) {
+    if (!await page.evaluate(continueDraft)) throw Error("B \u7AD9\u91CC\u6CA1\u6295\u7A3F\u7684\u89C6\u9891\u5C31\u662F\u8FD9\u4E2A\u6210\u7247\uFF0C\u4F46\u6CA1\u70B9\u5230\u300C\u7EE7\u7EED\u7F16\u8F91\u300D\uFF0C\u8BF7\u5728 B \u7AD9\u7A97\u53E3\u91CC\u70B9\u4E00\u4E0B\u540E\u518D\u8BD5");
+    await page.waitFor(editorOpen, Math.min(timeout, 6e4), "\u70B9\u4E86\u300C\u7EE7\u7EED\u7F16\u8F91\u300D\uFF0C\u4F46 B \u7AD9\u7F16\u8F91\u533A\u6CA1\u6709\u6253\u5F00\uFF0C\u8BF7\u5728\u7A97\u53E3\u68C0\u67E5");
+    return true;
+  }
+  const mb = (size) => `${(size / 1024 / 1024).toFixed(1)} MB`;
+  const names = saved.flatMap((item) => item.files.map((file) => `${file.name || item.title || "\u672A\u547D\u540D"}\uFF0C${mb(file.size)}`)).slice(0, 3);
+  const listed = names.length ? `\uFF08${names.join("\uFF1B")}\uFF09` : "";
+  if (ours.length) {
+    throw Error(`\u8FD9\u4E2A B \u7AD9\u8D26\u53F7\u7684\u6D4F\u89C8\u5668\u91CC\u6709 ${saved.length} \u4E2A\u6CA1\u6295\u7A3F\u7684\u89C6\u9891${listed}\uFF0C\u5176\u4E2D\u6709\u8FD9\u4E2A\u6210\u7247\u3002\u8BF7\u5728 B \u7AD9\u7A97\u53E3\u70B9\u300C\u7EE7\u7EED\u7F16\u8F91\u300D\u63A5\u7740\u6295\u5B83\uFF0C\u6216\u70B9\u300C\u4E0D\u7528\u4E86\u300D\uFF0C\u518D\u56DE\u6765\u70B9\u300C\u4E0A\u4F20\u5E76\u586B\u5199\u300D`);
+  }
+  throw Error(`\u8FD9\u4E2A B \u7AD9\u8D26\u53F7\u7684\u6D4F\u89C8\u5668\u91CC\u8FD8\u6709\u6CA1\u6295\u7A3F\u7684\u89C6\u9891${listed}\uFF0C\u63D2\u4EF6\u6CA1\u6709\u66FF\u4F60\u653E\u5F03\uFF0C\u4E5F\u6CA1\u6709\u4E0A\u4F20\u3002\u8BF7\u5148\u5728 B \u7AD9\u7A97\u53E3\u5904\u7406\uFF1A\u70B9\u300C\u7EE7\u7EED\u7F16\u8F91\u300D\u6295\u7A3F\uFF0C\u6216\u70B9\u300C\u4E0D\u7528\u4E86\u300D\uFF0C\u518D\u56DE\u6765\u70B9\u300C\u4E0A\u4F20\u5E76\u586B\u5199\u300D`);
+}
+function verificationGuard(page, progress, last, options) {
+  const open = async (navigating) => {
+    try {
+      return await page.evaluate(verificationOpen);
+    } catch (err) {
+      if (/context/i.test(String(err))) return navigating;
+      throw err;
+    }
+  };
+  return async () => {
+    if (!await open(false)) return 0;
+    const started = Date.now();
+    options.onPause?.();
+    progress(last(), "B \u7AD9\u8981\u6C42\u9A8C\u8BC1\uFF1A\u8BF7\u5728 B \u7AD9\u7A97\u53E3\u5B8C\u6210\u9A8C\u8BC1\uFF0C\u5B8C\u6210\u540E\u81EA\u52A8\u7EE7\u7EED");
+    await page.raw("Page.bringToFront").catch(() => {
+    });
+    while (await open(true)) await delay(1e3);
+    await delay(1e3);
+    options.onResume?.();
+    return Date.now() - started;
+  };
+}
+async function preparePage(page, draft, report, options = {}) {
+  const timeout = options.timeout ?? 10 * 6e4;
+  let fraction = 0;
+  const progress = (value, message) => {
+    fraction = value;
+    report(value, message);
+  };
+  const guard = () => {
+    page.guard = verificationGuard(page, report, () => fraction, options);
+  };
+  try {
+    return await fillPage(page, draft, progress, options, timeout, guard);
+  } finally {
+    page.guard = void 0;
+  }
+}
+async function fillPage(page, draft, progress, options, timeout, guard) {
+  const warnings = [];
+  if (options.resume) {
+    guard();
+    progress(0.2, "B \u7AD9\u7A97\u53E3\u91CC\u5DF2\u6709\u8FD9\u4E2A\u6210\u7247\uFF0C\u63A5\u7740\u4E0A\u6B21\u7684\u4E0A\u4F20\u7EE7\u7EED");
+  } else {
+    progress(0.1, "\u6B63\u5728\u6253\u5F00 B \u7AD9\u89C6\u9891\u6295\u7A3F\u9875");
+    await page.waitFor(hasUpload, Math.min(timeout, 9e4), "\u627E\u4E0D\u5230 B \u7AD9\u89C6\u9891\u4E0A\u4F20\u5165\u53E3\uFF0C\u8BF7\u68C0\u67E5\u767B\u5F55\u72B6\u6001", videoInput);
+    if (await restoreDraft(page, draft, timeout)) {
+      progress(0.2, "B \u7AD9\u91CC\u6CA1\u6295\u7A3F\u7684\u5C31\u662F\u8FD9\u4E2A\u6210\u7247\uFF0C\u63A5\u7740\u4E0A\u6B21\u7684\u4E0A\u4F20\u7EE7\u7EED");
+    } else {
+      if (!options.again) {
+        progress(0.15, "\u6B63\u5728\u68C0\u67E5\u8FD9\u4E2A\u6210\u7247\u662F\u5426\u5DF2\u7ECF\u6295\u8FC7");
+        const works = await page.evaluate(recentWorks, 2).catch(() => null);
+        const published = works && findPublished(works, draft);
+        if (published) throw new AlreadyPublished(published);
+        if (!works) warnings.push("\u6CA1\u80FD\u8BFB\u5230\u8FD9\u4E2A\u8D26\u53F7\u5DF2\u6295\u7684\u7A3F\u4EF6\uFF0C\u6CA1\u6709\u68C0\u67E5\u8FD9\u4E2A\u6210\u7247\u662F\u5426\u6295\u8FC7\uFF0C\u8BF7\u5728 B \u7AD9\u9875\u9762\u7559\u610F\u3002");
+      }
+      progress(0.2, "\u6B63\u5728\u4E0A\u4F20\u89C6\u9891\uFF0C\u8BF7\u4FDD\u7559 B \u7AD9\u7A97\u53E3");
+      await page.upload(videoInput, draft.video);
+    }
+    options.onUpload?.();
+    guard();
+  }
+  await waitForVideo(page, progress);
   progress(0.55, "\u6B63\u5728\u586B\u5199\u6807\u9898\u3001\u7B80\u4ECB\u548C\u6807\u7B7E");
+  await page.checkpoint();
   await page.fillTitle(draft.title);
+  await page.checkpoint();
   await page.fillContent(draft.content);
   for (const tag of draft.tags) {
+    await page.checkpoint();
     await page.evaluate(addTag, tag);
   }
+  await page.checkpoint();
   const form = await page.evaluate(readForm);
   const normalize = (value) => value.replace(/\s+/g, " ").trim();
   if (form.title !== draft.title || normalize(form.content) !== normalize(draft.content)) {
     throw Error("B \u7AD9\u9875\u9762\u4E0A\u7684\u6807\u9898\u6216\u7B80\u4ECB\u4E0E\u9879\u76EE\u53D1\u5E03\u4FE1\u606F\u4E0D\u7B26\uFF0C\u8BF7\u5728\u7A97\u53E3\u68C0\u67E5");
   }
-  const warnings = draft.tags.filter((tag) => !form.tags.includes(tag)).map((tag) => `\u8BF7\u5728 B \u7AD9\u68C0\u67E5\u6807\u7B7E\u300C${tag}\u300D\u3002`);
+  warnings.push(...draft.tags.filter((tag) => !form.tags.includes(tag)).map((tag) => `\u8BF7\u5728 B \u7AD9\u68C0\u67E5\u6807\u7B7E\u300C${tag}\u300D\u3002`));
   const cover = draft.covers["16:10"];
   if (cover) {
     progress(0.8, "\u6B63\u5728\u4E0A\u4F20 B \u7AD9\u5C01\u9762");
+    await page.checkpoint();
     try {
       await setCover(page, cover, Math.min(timeout, 3e4));
     } catch (error) {
@@ -7900,22 +8169,62 @@ async function preparePage(page, draft, progress, options = {}) {
   progress(1, "\u89C6\u9891\u548C\u6587\u6848\u5DF2\u586B\u597D\uFF0C\u8BF7\u5728 B \u7AD9\u68C0\u67E5\u6295\u7A3F\u9009\u9879");
   return warnings;
 }
+async function waitForVideo(page, progress) {
+  let reported;
+  for (; ; ) {
+    await page.checkpoint();
+    let status;
+    try {
+      status = await page.evaluate(videoStatus);
+    } catch (err) {
+      if (!/context/i.test(String(err))) throw err;
+    }
+    if (status?.state === "ready") return;
+    if (status?.state === "failed") throw Error("B \u7AD9\u663E\u793A\u89C6\u9891\u4E0A\u4F20\u5931\u8D25\uFF0C\u8BF7\u5728\u7A97\u53E3\u68C0\u67E5");
+    const percent = status?.percent == null ? null : Math.floor(status.percent);
+    if (status && percent !== reported) {
+      reported = percent;
+      progress(0.2 + 0.35 * (percent ?? 0) / 100, percent === null ? "\u6B63\u5728\u4E0A\u4F20\u89C6\u9891\uFF0C\u8BF7\u4FDD\u7559 B \u7AD9\u7A97\u53E3" : `\u6B63\u5728\u4E0A\u4F20\u89C6\u9891 ${percent}%\uFF0C\u8BF7\u4FDD\u7559 B \u7AD9\u7A97\u53E3`);
+    }
+    await delay(500);
+  }
+}
+async function editorHoldsFilm(page, draft) {
+  if (draft.videoDuration == null) return false;
+  try {
+    const seconds = await page.evaluate(editorVideoDuration);
+    return seconds !== null && Math.abs(seconds * 1e3 - draft.videoDuration) <= 50;
+  } catch {
+    return false;
+  }
+}
+async function canResume(page) {
+  try {
+    if (!await page.evaluate(editorOpen)) return false;
+    const status = await page.evaluate(videoStatus);
+    return status?.state === "uploading" || status?.state === "ready";
+  } catch {
+    return false;
+  }
+}
 async function setCover(page, file, timeout) {
   const previous = await page.evaluate(appliedCover);
   let selector = initialCoverInput;
   if (!await page.evaluate(hasUpload, selector)) {
+    await page.checkpoint();
     if (!await page.click(".cover-content .cover-upload .img")) throw Error("\u627E\u4E0D\u5230\u5C01\u9762\u5165\u53E3");
     selector = coverInput;
     await page.waitFor(hasUpload, timeout, "\u627E\u4E0D\u5230\u5C01\u9762\u4E0A\u4F20\u63A7\u4EF6", selector);
   }
+  await page.checkpoint();
   await page.upload(selector, file);
   await page.waitFor(coverCropReady, timeout, "\u5C01\u9762\u88C1\u5207\u9884\u89C8\u5C1A\u672A\u8F7D\u5165");
   await page.waitFor(clickControl, timeout, "\u65E0\u6CD5\u5E94\u7528\u5C01\u9762\u88C1\u5207", {
     selector: '.cover-select .cover-select-footer :is(button, [role="button"])',
     exactText: "\u5B8C\u6210"
   });
-  const deadline = Date.now() + timeout;
-  while (Date.now() < deadline) {
+  let deadline = Date.now() + timeout;
+  while (deadline += await page.checkpoint(), Date.now() < deadline) {
     if (!await page.evaluate(coverDialogOpen)) {
       const current = await page.evaluate(appliedCover);
       if (current && current !== previous) return;
@@ -7962,10 +8271,10 @@ function parameter(value, label) {
 }
 function validateRequest(raw) {
   const r = object(raw);
-  if (typeof r.data_dir !== "string" || !import_node_path4.default.isAbsolute(r.data_dir)) throw Error("data_dir \u9700\u8981\u7EDD\u5BF9\u8DEF\u5F84");
-  if (typeof r.project_root !== "string" || r.project_root !== "" && !import_node_path4.default.isAbsolute(r.project_root)) throw Error("project_root \u9700\u8981\u7EDD\u5BF9\u8DEF\u5F84");
+  if (typeof r.data_dir !== "string" || !import_node_path5.default.isAbsolute(r.data_dir)) throw Error("data_dir \u9700\u8981\u7EDD\u5BF9\u8DEF\u5F84");
+  if (typeof r.project_root !== "string" || r.project_root !== "" && !import_node_path5.default.isAbsolute(r.project_root)) throw Error("project_root \u9700\u8981\u7EDD\u5BF9\u8DEF\u5F84");
   const params = object(r.params ?? {}), settings = object(r.settings ?? {});
-  for (const key of Object.keys(params)) if (!["account"].includes(key)) throw Error(`\u4E0D\u652F\u6301\u53C2\u6570 ${key}\uFF1B\u63D2\u4EF6\u4E0D\u4F1A\u81EA\u52A8\u53D1\u5E03`);
+  for (const key of Object.keys(params)) if (!["account", "again"].includes(key)) throw Error(`\u4E0D\u652F\u6301\u53C2\u6570 ${key}\uFF1B\u63D2\u4EF6\u4E0D\u4F1A\u81EA\u52A8\u53D1\u5E03`);
   for (const value of Object.values(params)) if (typeof value !== "string" || value.length > 500) throw Error("\u53C2\u6570\u9700\u8981\u5B57\u7B26\u4E32");
   const browser = r.browser === void 0 ? void 0 : validateBridge(r.browser);
   return { project_root: r.project_root, data_dir: r.data_dir, params, settings, browser };
@@ -8033,7 +8342,11 @@ async function runOperation(operation, raw, progress = () => {
       const browser = await deps.open(store.profile(account.id), { bridge: request2.browser, account: account.id, label: account.name, upload: !!draft, hint: draft ? "\u8BF7\u68C0\u67E5\u8D26\u53F7\u4E0E\u5185\u5BB9\uFF0C\u53D1\u5E03\u7531\u4F60\u786E\u8BA4" : "\u5982\u9700\u91CD\u65B0\u767B\u5F55\uFF0C\u8BF7\u5728\u8FD9\u91CC\u767B\u5F55\u539F B \u7AD9\u8D26\u53F7\uFF0C\u7247\u573A\u4F1A\u81EA\u52A8\u66F4\u65B0\u8D26\u53F7\u8D44\u6599" });
       try {
         const page = await deps.page(browser);
-        if (draft && browser.reused) await page.navigate(page.origin + UploadPath);
+        let resume = false;
+        if (draft && browser.reused) {
+          resume = await canResume(page) && (store.lastUpload(account.id) === draft.videoHash || await editorHoldsFilm(page, draft));
+          if (!resume) await page.navigate(page.origin + UploadPath);
+        }
         if (!draft) {
           const result2 = await refreshOpenAccount(browser, page, store, account, deps, (message) => {
             progress(0.1, message);
@@ -8045,10 +8358,45 @@ async function runOperation(operation, raw, progress = () => {
         const info = await readProfile(page);
         if (!info) throw Error("\u8BF7\u5728 B \u7AD9\u7A97\u53E3\u767B\u5F55\u539F\u8D26\u53F7\u540E\u91CD\u8BD5");
         if (account.user_id !== info.user_id) throw Error("\u5F53\u524D\u767B\u5F55\u7684 B \u7AD9\u8D26\u53F7\u4E0E\u6240\u9009\u8D26\u53F7\u4E0D\u540C\uFF0C\u8BF7\u5207\u56DE\u539F\u8D26\u53F7");
-        const warnings = await deps.prepare(page, draft, (fraction, message) => {
-          progress(fraction, message);
-          update({ status: "running", message, account });
-        });
+        let masked = false, paused = false, lastMessage = "", lastFraction = 0;
+        const mask = (message, fraction) => {
+          masked = true;
+          lastMessage = message;
+          lastFraction = Math.max(0, Math.min(1, fraction));
+          if (!paused) void browser.busy?.(lastMessage, lastFraction).catch(() => {
+          });
+        };
+        if (resume) mask("\u63A5\u7740\u4E0A\u6B21\u7684\u4E0A\u4F20", 0.2);
+        let warnings;
+        try {
+          warnings = await deps.prepare(page, draft, (fraction, message) => {
+            progress(fraction, message);
+            update({ status: "running", message, account });
+            if (masked && !paused) mask(message, fraction);
+          }, {
+            resume,
+            again: params.again === "1",
+            onUpload: () => {
+              store.recordUpload(account.id, draft.videoHash);
+              mask("\u6B63\u5728\u4E0A\u4F20\u89C6\u9891", 0.2);
+            },
+            onPause: () => {
+              paused = true;
+              if (masked) void browser.idle?.().catch(() => {
+              });
+            },
+            onResume: () => {
+              paused = false;
+              if (masked) mask(lastMessage, lastFraction);
+            }
+          });
+        } catch (err) {
+          if (err instanceof AlreadyPublished) return { status: "already_published", message: err.message, account };
+          throw err;
+        } finally {
+          if (masked) await browser.idle?.().catch(() => {
+          });
+        }
         await page.raw("Page.bringToFront");
         return { status: "ready_to_publish", message: "\u5185\u5BB9\u5DF2\u586B\u597D\uFF0C\u8BF7\u5728 B \u7AD9\u9875\u9762\u6838\u5BF9\u8D26\u53F7\u3001\u5C01\u9762\u548C\u6587\u6848\uFF0C\u518D\u624B\u52A8\u53D1\u5E03", account, warnings, video_sha256: draft.videoHash };
       } finally {

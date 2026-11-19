@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { stringify } from 'yaml';
 import { AccountStore, newAccountID, withAccountLock } from '../src/accounts';
-import { readDraft } from '../src/draft';
+import { mp4Duration, readDraft } from '../src/draft';
+import { findPublished, sameFilm } from '../src/prepare';
 import { projectFile, writeProjectJSON } from '../src/files';
 
 const roots: string[] = [];
@@ -142,5 +143,47 @@ describe('发布素材', () => {
     fs.symlinkSync(outside, path.join(root, 'production'));
     expect(() => writeProjectJSON(root, 'production/bilibili/state.json', { status: 'ready' })).toThrow();
     expect(fs.readdirSync(outside)).toEqual(['secret.mp4']);
+  });
+});
+
+describe('认出同一个成片', () => {
+  const box = (type: string, body: Buffer) => { const head = Buffer.alloc(8); head.writeUInt32BE(8 + body.length); head.write(type, 4, 'latin1'); return Buffer.concat([head, body]); };
+  const mvhd = (version: 0 | 1, scale: number, duration: number) => {
+    const body = Buffer.alloc(version ? 32 : 20);
+    body[0] = version;
+    if (version) { body.writeUInt32BE(scale, 20); body.writeBigUInt64BE(BigInt(duration), 24); }
+    else { body.writeUInt32BE(scale, 12); body.writeUInt32BE(duration, 16); }
+    return box('mvhd', body);
+  };
+  const write = (data: Buffer) => { const file = path.join(temp(), 'film.mp4'); fs.writeFileSync(file, data); return file; };
+
+  it('读 MP4 时长：moov 在 mdat 之后、64 位版本的 mvhd 与读不出来的文件', () => {
+    const mdat = box('mdat', Buffer.alloc(4096));
+    expect(mp4Duration(write(Buffer.concat([box('ftyp', Buffer.from('isom0000')), mdat, box('moov', mvhd(0, 384000, 204_083_200))])))).toBe(531467);
+    expect(mp4Duration(write(Buffer.concat([box('moov', Buffer.concat([box('trak', Buffer.alloc(8)), mvhd(1, 1000, 37_200)]))])))).toBe(37200);
+    expect(mp4Duration(write(Buffer.from('not a video at all')))).toBeNull();
+    expect(mp4Duration('/nonexistent/film.mp4')).toBeNull();
+  });
+
+  it('发布素材带上成片的大小、修改时间与时长', async () => {
+    const root = project();
+    const draft = await readDraft(root);
+    expect(draft).toMatchObject({ videoSize: 5, videoDuration: null });
+    expect(draft.videoModified).toBe(Math.floor(fs.statSync(path.join(root, 'final.mp4')).mtimeMs));
+  });
+
+  it('已投稿件按标题与时长认；B 站本地记录按大小与文件名认', () => {
+    const draft = { title: '我的 标题', content: '', tags: [], video: '/p/final.mp4', videoHash: 'h', covers: {}, videoSize: 10, videoModified: 1795068327347, videoDuration: 531_467 };
+    const work = (title: string, duration: number) => ({ title, duration, time: 0, state: '开放浏览', reviewing: false, is_private: false });
+    expect(findPublished([work('我的标题', 531_000)], draft)).toBeTruthy();
+    expect(findPublished([work('我的标题', 532_000)], draft)).toBeTruthy();
+    expect(findPublished([work('我的标题', 300_000)], draft)).toBeUndefined();
+    expect(findPublished([work('别的标题', 531_467)], draft)).toBeUndefined();
+    expect(findPublished([work('我的标题', 1)], { ...draft, videoDuration: null })).toBeTruthy();
+    expect(sameFilm({ name: 'final', size: 10 }, draft)).toBe(true);
+    expect(sameFilm({ name: '', size: 10 }, draft)).toBe(true);
+    expect(sameFilm({ name: 'other', size: 10 }, draft)).toBe(false);
+    expect(sameFilm({ name: 'final', size: 11 }, draft)).toBe(false);
+    expect(sameFilm({ name: 'final', size: 10 }, { ...draft, videoSize: undefined })).toBe(false);
   });
 });

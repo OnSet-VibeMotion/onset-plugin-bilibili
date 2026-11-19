@@ -42,6 +42,8 @@ ${stringify({
           'access-control-allow-origin': 'https://member.bilibili.com', 'access-control-allow-credentials': 'true',
         } });
       }
+      // 稿件列表：这个账号还没投过稿。
+      if (url.hostname === 'member.bilibili.com' && url.pathname === '/x/web/archives') return Response.json({ code: 0, data: { arc_audits: [], page: { pn: 1, ps: 30, count: 0 } } });
       if (url.hostname === 'member.bilibili.com') return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } });
       return new Response('', { status: 404 });
     });
