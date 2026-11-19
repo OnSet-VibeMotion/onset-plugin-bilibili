@@ -144,7 +144,7 @@ export async function runOperation(operation: string, raw: unknown, progress: Pr
 
 /**
  * 登录：给新账号开一个独立的网页存储，打开 B 站，等用户在片场里的页面登录好，读出昵称与头像记下来，再把页面关掉回到片场。
- * 用户点「返回片场」收起页面、或十分钟没登录，就当不登了，新开的存储一起删掉。
+ * 用户返回片场时最后确认一次登录，取消或超时则清理这次新开的存储。
  */
 async function login(request: Request, store: AccountStore, progress: Progress, deps: typeof defaults): Promise<Result> {
   const id = newAccountID();
@@ -161,8 +161,17 @@ async function login(request: Request, store: AccountStore, progress: Progress, 
     for (;;) {
       if (Date.now() > deadline) throw Error('等了十分钟还没登录，这次没有添加账号');
       const state = await browser.state?.();
-      if (state && (!state.open || !state.visible)) throw Error('登录页面关掉了，这次没有添加账号');
-      const current = await readProfile(page);
+      if (state && !state.open) throw Error('登录页面关掉了，这次没有添加账号');
+      const returned = state?.visible === false;
+      let current = await readProfile(page);
+      if (returned && !current?.name) {
+        // 用户可能在扫码跳转还没结束时点了返回片场。
+        await deps.sleep(1000);
+        current = await readProfile(page) ?? current;
+      }
+      if (returned && !current?.name && (!info?.name || info.user_id !== current?.user_id)) {
+        throw Error('返回片场时还没确认 B 站登录，这次没有添加账号');
+      }
       if (current && current.user_id === info?.user_id) {
         info = { ...current, name: current.name || info.name, avatar: current.avatar || info.avatar };
         profilePolls++;
@@ -171,7 +180,7 @@ async function login(request: Request, store: AccountStore, progress: Progress, 
         profilePolls = current ? 1 : 0;
       }
       if (info?.name && info.avatar && (avatar = await loadAvatar(info.avatar, deps))) break;
-      if (info && profilePolls >= 4) {
+      if (info && (returned || profilePolls >= 4)) {
         if (!info.name) throw Error('已登录 B 站，但读取不到昵称。请在 B 站创作者中心确认账号后重试');
         break;
       }
@@ -196,7 +205,9 @@ async function login(request: Request, store: AccountStore, progress: Progress, 
 
 /** 跳转中或离开创作者站点时，等下一次检查。 */
 async function readProfile(page: Page): Promise<scripts.LoginInfo | null> {
-  return page.evaluate(scripts.loginInfo).catch(() => null);
+  return page.evaluate(scripts.loginInfo, undefined, [
+    page.origin, 'https://passport.bilibili.com', 'https://www.bilibili.com',
+  ]).catch(() => null);
 }
 
 async function loadAvatar(url: string, deps: typeof defaults): Promise<string> {

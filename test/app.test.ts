@@ -71,7 +71,7 @@ it('同一个账号重新登录：换掉旧的那条', async () => {
 it('用户收起登录页或一直不登录：不留半截账号，删掉新开的存储', async () => {
   const { request, deps, state, close, evaluate } = setup();
   state.mockResolvedValueOnce({ open: true, visible: true }).mockResolvedValueOnce({ open: true, visible: false });
-  await expect(runOperation('login', request, () => {}, deps)).rejects.toThrow('登录页面关掉了');
+  await expect(runOperation('login', request, () => {}, deps)).rejects.toThrow('返回片场时还没确认 B 站登录');
   expect(close).toHaveBeenCalledOnce();
   expect(new AccountStore(request.data_dir).list().map(a => a.name)).toEqual(['工作号']);
   expect(fs.readdirSync(path.join(request.data_dir, 'accounts')).filter(n => /^[0-9a-f-]{36}$/.test(n))).toHaveLength(1);
@@ -237,4 +237,16 @@ it('上传前发现浏览器切换了账号时停止', async () => {
   evaluate.mockResolvedValue({ user_id: 'other', name: '其他用户', avatar: '' });
   await expect(runOperation('prepare', request, () => {}, deps)).rejects.toThrow(/当前登录的 B 站账号/);
   expect(deps.prepare).not.toHaveBeenCalled();
+});
+
+it('返回片场时确认跳转中的登录，保存已登录账号', async () => {
+  const { request, deps, evaluate, state, close, forget } = setup();
+  state.mockResolvedValueOnce({ open: true, visible: true }).mockResolvedValue({ open: true, visible: false });
+  evaluate.mockResolvedValueOnce(null).mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ name: '扫码账号', user_id: 'u9', avatar: '' });
+  expect(await runOperation('login', request, () => {}, deps)).toMatchObject({
+    status: 'logged_in', account: { name: '扫码账号', user_id: 'u9' },
+  });
+  expect(close).toHaveBeenCalledOnce();
+  expect(forget).not.toHaveBeenCalled();
 });

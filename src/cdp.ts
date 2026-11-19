@@ -76,11 +76,11 @@ export class Page {
     const result = await this.raw('Page.navigate', { url });
     if (result.errorText) throw Error(`打开 B 站失败：${result.errorText}`);
   }
-  private expression<T, A>(fn: (arg: A) => T, arg: A): string {
-    return `(() => { if (location.origin !== ${JSON.stringify(this.origin)}) throw new Error('页面已离开创作者中心，请重新打开'); return (${fn.toString()})(${JSON.stringify(arg) ?? 'undefined'}); })()`;
+  private expression<T, A>(fn: (arg: A) => T, arg: A, origins: readonly string[] = [this.origin]): string {
+    return `(() => { if (!${JSON.stringify(origins)}.includes(location.origin)) throw new Error('页面已离开创作者中心，请重新打开'); return (${fn.toString()})(${JSON.stringify(arg) ?? 'undefined'}); })()`;
   }
-  async evaluate<T, A = undefined>(fn: (arg: A) => T, arg?: A): Promise<T> {
-    const result = await this.raw('Runtime.evaluate', { expression: this.expression(fn, arg as A), returnByValue: true, awaitPromise: true });
+  async evaluate<T, A = undefined>(fn: (arg: A) => T, arg?: A, origins?: readonly string[]): Promise<T> {
+    const result = await this.raw('Runtime.evaluate', { expression: this.expression(fn, arg as A, origins), returnByValue: true, awaitPromise: true });
     if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description ?? '页面操作失败');
     return result.result.value as T;
   }

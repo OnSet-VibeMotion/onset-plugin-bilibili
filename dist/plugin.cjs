@@ -7684,11 +7684,11 @@ var Page = class _Page {
     const result = await this.raw("Page.navigate", { url });
     if (result.errorText) throw Error(`\u6253\u5F00 B \u7AD9\u5931\u8D25\uFF1A${result.errorText}`);
   }
-  expression(fn, arg) {
-    return `(() => { if (location.origin !== ${JSON.stringify(this.origin)}) throw new Error('\u9875\u9762\u5DF2\u79BB\u5F00\u521B\u4F5C\u8005\u4E2D\u5FC3\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00'); return (${fn.toString()})(${JSON.stringify(arg) ?? "undefined"}); })()`;
+  expression(fn, arg, origins = [this.origin]) {
+    return `(() => { if (!${JSON.stringify(origins)}.includes(location.origin)) throw new Error('\u9875\u9762\u5DF2\u79BB\u5F00\u521B\u4F5C\u8005\u4E2D\u5FC3\uFF0C\u8BF7\u91CD\u65B0\u6253\u5F00'); return (${fn.toString()})(${JSON.stringify(arg) ?? "undefined"}); })()`;
   }
-  async evaluate(fn, arg) {
-    const result = await this.raw("Runtime.evaluate", { expression: this.expression(fn, arg), returnByValue: true, awaitPromise: true });
+  async evaluate(fn, arg, origins) {
+    const result = await this.raw("Runtime.evaluate", { expression: this.expression(fn, arg, origins), returnByValue: true, awaitPromise: true });
     if (result.exceptionDetails) throw Error(result.exceptionDetails.exception?.description ?? "\u9875\u9762\u64CD\u4F5C\u5931\u8D25");
     return result.result.value;
   }
@@ -8078,8 +8078,16 @@ async function login(request2, store, progress, deps) {
     for (; ; ) {
       if (Date.now() > deadline) throw Error("\u7B49\u4E86\u5341\u5206\u949F\u8FD8\u6CA1\u767B\u5F55\uFF0C\u8FD9\u6B21\u6CA1\u6709\u6DFB\u52A0\u8D26\u53F7");
       const state = await browser.state?.();
-      if (state && (!state.open || !state.visible)) throw Error("\u767B\u5F55\u9875\u9762\u5173\u6389\u4E86\uFF0C\u8FD9\u6B21\u6CA1\u6709\u6DFB\u52A0\u8D26\u53F7");
-      const current = await readProfile(page);
+      if (state && !state.open) throw Error("\u767B\u5F55\u9875\u9762\u5173\u6389\u4E86\uFF0C\u8FD9\u6B21\u6CA1\u6709\u6DFB\u52A0\u8D26\u53F7");
+      const returned = state?.visible === false;
+      let current = await readProfile(page);
+      if (returned && !current?.name) {
+        await deps.sleep(1e3);
+        current = await readProfile(page) ?? current;
+      }
+      if (returned && !current?.name && (!info?.name || info.user_id !== current?.user_id)) {
+        throw Error("\u8FD4\u56DE\u7247\u573A\u65F6\u8FD8\u6CA1\u786E\u8BA4 B \u7AD9\u767B\u5F55\uFF0C\u8FD9\u6B21\u6CA1\u6709\u6DFB\u52A0\u8D26\u53F7");
+      }
       if (current && current.user_id === info?.user_id) {
         info = { ...current, name: current.name || info.name, avatar: current.avatar || info.avatar };
         profilePolls++;
@@ -8088,7 +8096,7 @@ async function login(request2, store, progress, deps) {
         profilePolls = current ? 1 : 0;
       }
       if (info?.name && info.avatar && (avatar = await loadAvatar(info.avatar, deps))) break;
-      if (info && profilePolls >= 4) {
+      if (info && (returned || profilePolls >= 4)) {
         if (!info.name) throw Error("\u5DF2\u767B\u5F55 B \u7AD9\uFF0C\u4F46\u8BFB\u53D6\u4E0D\u5230\u6635\u79F0\u3002\u8BF7\u5728 B \u7AD9\u521B\u4F5C\u8005\u4E2D\u5FC3\u786E\u8BA4\u8D26\u53F7\u540E\u91CD\u8BD5");
         break;
       }
@@ -8114,7 +8122,11 @@ async function login(request2, store, progress, deps) {
   }
 }
 async function readProfile(page) {
-  return page.evaluate(loginInfo).catch(() => null);
+  return page.evaluate(loginInfo, void 0, [
+    page.origin,
+    "https://passport.bilibili.com",
+    "https://www.bilibili.com"
+  ]).catch(() => null);
 }
 async function loadAvatar(url, deps) {
   return url ? deps.avatar(url).catch(() => "") : "";

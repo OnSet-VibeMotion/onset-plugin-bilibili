@@ -31,3 +31,21 @@ it('拒绝缺失、远端、带路径或格式不合法的客户端连接', asyn
   ]) expect(() => validateBridge(value)).toThrow();
   await expect(openBrowser('/unused', { account: 'a', label: '工作号' })).rejects.toThrow('更新片场');
 });
+
+it('通行证跳转页允许读取登录资料，上传脚本仍限制在创作中心', async () => {
+  const passport = 'https://passport.bilibili.com';
+  const page = await Page.create({
+    attached: true, disconnect: () => {},
+    send: async (method, params) => {
+      if (method !== 'Runtime.evaluate') return {};
+      try {
+        const getValue = new Function('location', `return (${params?.expression})`);
+        return { result: { value: getValue({ origin: passport }) } };
+      } catch (error) {
+        return { exceptionDetails: { exception: { description: String(error) } } };
+      }
+    },
+  });
+  await expect(page.evaluate(() => '账号资料', undefined, ['https://member.bilibili.com', passport])).resolves.toBe('账号资料');
+  await expect(page.evaluate(() => '上传')).rejects.toThrow('页面已离开创作者中心');
+});
